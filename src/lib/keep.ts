@@ -1,7 +1,7 @@
 import type { ImageStore } from './db';
 import { extractPalette, dominantFamily } from './color';
 import { isKeepableUrl } from './urls';
-import { MAX_BYTES, type KeepErrorReason, type KeepResult } from './types';
+import { MAX_BYTES, type KeepErrorReason, type KeepManyResult, type KeepResult } from './types';
 
 export interface Decoded {
   width: number;
@@ -80,4 +80,22 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
     if (raced) return { status: 'duplicate', image: raced };
     throw e;
   }
+}
+
+/** Keeps each URL in turn; any failure, including an unexpected storage error, counts as skipped. */
+export async function keepMany(
+  deps: KeepDeps,
+  input: { imageUrls: string[]; pageUrl: string; pageTitle: string },
+): Promise<KeepManyResult> {
+  const out: KeepManyResult = { kept: 0, skipped: 0 };
+  for (const imageUrl of input.imageUrls) {
+    try {
+      const r = await keepImage(deps, { imageUrl, pageUrl: input.pageUrl, pageTitle: input.pageTitle });
+      if (r.status === 'kept') out.kept++;
+      else out.skipped++;
+    } catch {
+      out.skipped++;
+    }
+  }
+  return out;
 }

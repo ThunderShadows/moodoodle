@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi } from 'vitest';
-import { keepImage, siteOf, type KeepDeps } from './keep';
+import { keepImage, keepMany, siteOf, type KeepDeps } from './keep';
 import { openImageStore } from './db';
 
 const PNG = () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' });
@@ -83,5 +83,25 @@ describe('siteOf', () => {
   it('strips www and handles bad URLs', () => {
     expect(siteOf('https://www.dribbble.com/x')).toBe('dribbble.com');
     expect(siteOf('nope')).toBe('');
+  });
+});
+
+describe('keepMany', () => {
+  it('counts kept and skipped, and keeps going when one image hits a storage error', async () => {
+    const real = deps();
+    const store = {
+      ...real.store,
+      add: vi.fn(async (input: Parameters<typeof real.store.add>[0], blob: Blob) => {
+        if (input.imageUrl.endsWith('/broken.png')) throw new Error('QuotaExceededError');
+        return real.store.add(input, blob);
+      }),
+    };
+    const d = { ...real, store };
+    const res = await keepMany(d, {
+      imageUrls: ['https://a.com/1.png', 'https://a.com/broken.png', 'blob:x', 'https://a.com/1.png', 'https://a.com/2.png'],
+      pageUrl: 'https://a.com/p',
+      pageTitle: 'P',
+    });
+    expect(res).toEqual({ kept: 2, skipped: 3 });
   });
 });

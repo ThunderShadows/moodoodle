@@ -1,9 +1,9 @@
 import { browser } from 'wxt/browser';
 import { openImageStore } from '@/lib/db';
-import { keepImage, type KeepDeps } from '@/lib/keep';
+import { keepImage, keepMany, type KeepDeps } from '@/lib/keep';
 import { fetchBlob, decodeInWorker } from '@/lib/decode';
 import { lensUrl } from '@/lib/urls';
-import type { KeepManyResult, Message } from '@/lib/types';
+import type { Message } from '@/lib/types';
 
 export default defineBackground(() => {
   const deps: KeepDeps = { store: openImageStore(), fetchBlob, decode: decodeInWorker };
@@ -18,15 +18,8 @@ export default defineBackground(() => {
     switch (msg.type) {
       case 'keep':
         return keepImage(deps, msg);
-      case 'keep-many': {
-        const out: KeepManyResult = { kept: 0, skipped: 0 };
-        for (const imageUrl of msg.imageUrls) {
-          const r = await keepImage(deps, { imageUrl, pageUrl: msg.pageUrl, pageTitle: msg.pageTitle });
-          if (r.status === 'kept') out.kept++;
-          else out.skipped++;
-        }
-        return out;
-      }
+      case 'keep-many':
+        return keepMany(deps, msg);
       case 'lens':
         return openLens(msg.imageUrl);
       default:
