@@ -1,7 +1,11 @@
-# WXT + Svelte
+# moodoodle
 
-This template should help get you started developing with Svelte in WXT.
+Keep the designs you love. Find more like them.
 
-## Recommended IDE Setup
+    npm install
+    npm run dev     # launches Chrome with the extension
+    npm test        # unit tests
+    npm run build && npm run e2e   # end-to-end checks in headless Chromium
+    npm run zip     # store-ready zip in .output/
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+Spec: docs/spec.md · Plan: docs/superpowers/plans/2026-10-06-v1-extension.md
