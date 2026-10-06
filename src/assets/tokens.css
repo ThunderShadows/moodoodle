@@ -6,7 +6,8 @@
   --hand: 'Caveat', cursive;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); }
+html { font-size: 16px; }
+body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 1rem; }
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
