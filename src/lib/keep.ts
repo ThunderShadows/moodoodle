@@ -1,0 +1,83 @@
+import type { ImageStore } from './db';
+import { extractPalette, dominantFamily } from './color';
+import { isKeepableUrl } from './urls';
+import { MAX_BYTES, type KeepErrorReason, type KeepResult } from './types';
+
+export interface Decoded {
+  width: number;
+  height: number;
+  pixels: Uint8ClampedArray;
+}
+
+export interface KeepDeps {
+  store: ImageStore;
+  fetchBlob(url: string): Promise<Blob>;
+  decode(blob: Blob): Promise<Decoded>;
+  maxBytes?: number;
+}
+
+export interface KeepInput {
+  imageUrl: string;
+  pageUrl: string;
+  pageTitle: string;
+}
+
+export function siteOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+const fail = (reason: KeepErrorReason): KeepResult => ({ status: 'error', reason });
+
+export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepResult> {
+  if (!isKeepableUrl(input.imageUrl)) return fail('unsupported-url');
+
+  const existing = await deps.store.findByUrl(input.imageUrl);
+  if (existing) return { status: 'duplicate', image: existing };
+
+  let blob: Blob;
+  try {
+    blob = await deps.fetchBlob(input.imageUrl);
+  } catch {
+    return fail('fetch-failed');
+  }
+  if (!blob.type.startsWith('image/')) return fail('not-an-image');
+  if (blob.size > (deps.maxBytes ?? MAX_BYTES)) return fail('too-big');
+
+  let decoded: Decoded;
+  try {
+    decoded = await deps.decode(blob);
+  } catch {
+    return fail('decode-failed');
+  }
+
+  const palette = extractPalette(decoded.pixels);
+  const site = siteOf(input.pageUrl);
+  try {
+    const image = await deps.store.add(
+      {
+        imageUrl: input.imageUrl,
+        pageUrl: input.pageUrl,
+        pageTitle: input.pageTitle.trim() || site,
+        site,
+        width: decoded.width,
+        height: decoded.height,
+        mimeType: blob.type,
+        byteSize: blob.size,
+        palette,
+        colorFamily: dominantFamily(palette),
+        tags: [],
+      },
+      blob,
+    );
+    return { status: 'kept', image };
+  } catch (e) {
+    // Another keep of the same URL won the race to the unique index.
+    const raced = await deps.store.findByUrl(input.imageUrl);
+    if (raced) return { status: 'duplicate', image: raced };
+    throw e;
+  }
+}
