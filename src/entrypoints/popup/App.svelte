@@ -1,3 +1,107 @@
-<script lang="ts"></script>
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { browser, type Browser } from 'wxt/browser';
+  import { openImageStore } from '@/lib/db';
+  import type { KeepManyResult, Message, SavedImage } from '@/lib/types';
 
-<main>moodoodle</main>
+  type Tab = Browser.tabs.Tab;
+  const store = openImageStore();
+  let recent = $state<{ img: SavedImage; url: string }[]>([]);
+  let found = $state<string[] | null>(null);
+  let status = $state('');
+  let query = $state('');
+  let busy = $state(false);
+  let todayCount = $state(0);
+  let tab: Tab | undefined;
+
+  async function loadRecent() {
+    const all = await store.list();
+    const today = new Date().toISOString().slice(0, 10);
+    todayCount = all.filter((i) => i.savedAt.startsWith(today)).length;
+    const next: { img: SavedImage; url: string }[] = [];
+    for (const img of all.slice(0, 6)) {
+      const blob = await store.getBlob(img.id);
+      if (blob) next.push({ img, url: URL.createObjectURL(blob) });
+    }
+    recent.forEach((r) => URL.revokeObjectURL(r.url));
+    recent = next;
+  }
+
+  onMount(async () => {
+    loadRecent();
+    [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id === undefined) return;
+    try {
+      const msg: Message = { type: 'collect-images' };
+      found = (await browser.tabs.sendMessage(tab.id, msg)) as string[];
+    } catch {
+      found = null;
+      status = "Can't read this page. Try reloading it.";
+    }
+  });
+
+  async function keepAll() {
+    if (!found?.length || !tab) return;
+    busy = true;
+    const msg: Message = { type: 'keep-many', imageUrls: found, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '' };
+    const res = (await browser.runtime.sendMessage(msg)) as KeepManyResult;
+    status = `Kept ${res.kept}${res.skipped ? ` · ${res.skipped} skipped` : ''}`;
+    busy = false;
+    loadRecent();
+  }
+
+  function openGallery(q = '') {
+    const path = q ? `/gallery.html?q=${encodeURIComponent(q)}` : '/gallery.html';
+    browser.tabs.create({ url: browser.runtime.getURL(path as '/gallery.html') });
+    window.close();
+  }
+</script>
+
+<div class="pop">
+  <div class="top">
+    <span class="word">moodoodle</span>
+    <span class="hand">{todayCount} kept today</span>
+  </div>
+  <form onsubmit={(e) => { e.preventDefault(); openGallery(query); }}>
+    <label for="pq" class="sr">Search saves</label>
+    <input id="pq" type="search" placeholder="Find a save…" bind:value={query} />
+  </form>
+  {#if recent.length}
+    <span class="label">Recently kept</span>
+    <div class="recent">
+      {#each recent as r (r.img.id)}<img src={r.url} alt={r.img.pageTitle} />{/each}
+    </div>
+  {/if}
+  {#if found}
+    <div class="card">
+      <div class="col">
+        <span class="strong">Keep all on this page</span>
+        <span class="muted">{found.length} images found</span>
+      </div>
+      <button type="button" class="dark" onclick={keepAll} disabled={busy || found.length === 0}>
+        {busy ? 'Keeping…' : `Keep ${found.length}`}
+      </button>
+    </div>
+  {/if}
+  {#if status}<p class="status" role="status">{status}</p>{/if}
+  <button type="button" class="open" onclick={() => openGallery()}>Open my collection</button>
+</div>
+
+<style>
+  .pop { width: 360px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .word { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+  .hand { font-family: var(--hand); font-size: 19px; color: var(--muted); }
+  input[type='search'] { width: 100%; height: 44px; padding: 0 16px; border: 2px solid var(--line); border-radius: 999px; background: var(--card); }
+  .label { font-weight: 600; font-size: 13px; color: var(--muted); }
+  .recent { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .recent img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--line); }
+  .card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 16px; background: var(--card); }
+  .col { display: flex; flex-direction: column; gap: 2px; }
+  .strong { font-weight: 600; font-size: 15px; }
+  .muted { font-size: 13px; color: var(--muted); }
+  .dark { height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--ink); color: #FFFFFF; font-weight: 600; cursor: pointer; }
+  .dark:disabled { opacity: .6; }
+  .status { margin: 0; font-size: 14px; color: var(--ink); }
+  .open { height: 48px; border: 0; border-radius: 999px; background: var(--accent); color: var(--ink); font-weight: 600; cursor: pointer; }
+</style>
