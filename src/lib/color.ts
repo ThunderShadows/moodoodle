@@ -8,8 +8,8 @@ export function toHex(r: number, g: number, b: number): string {
 export function extractPalette(pixels: Uint8ClampedArray, maxColors = 5): string[] {
   const bins = new Map<number, { r: number; g: number; b: number; n: number }>();
   for (let i = 0; i + 3 < pixels.length; i += 4) {
-    if (pixels[i + 3] < 128) continue;
-    const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+    if (pixels[i + 3]! < 128) continue;
+    const r = pixels[i]!, g = pixels[i + 1]!, b = pixels[i + 2]!;
     const key = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
     const bin = bins.get(key) ?? { r: 0, g: 0, b: 0, n: 0 };
     bin.r += r; bin.g += g; bin.b += b; bin.n++;

@@ -41,5 +41,5 @@ export async function buildZip(
   }
   if (includeSources) zip.file('sources.txt', lines.join('\n'));
   const bytes = await zip.generateAsync({ type: 'uint8array' });
-  return new Blob([bytes], { type: 'application/zip' });
+  return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
 }
