@@ -11,3 +11,6 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 5px; flex-shrink: 0; }
+.swatch.peach { background: #FFB58F; } .swatch.mint { background: #A8E6C1; } .swatch.lilac { background: #C9B8FA; }
+.swatch.butter { background: #FFE27A; } .swatch.sky { background: #A9CCF5; } .swatch.rose { background: #F7B2D9; }

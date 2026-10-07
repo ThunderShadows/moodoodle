@@ -166,7 +166,7 @@ await gallery.screenshot({ path: path.join(shots, '6-gallery.png'), fullPage: tr
 
 await gallery.getByRole('button', { name: /Green/ }).click();
 check('color chip filters to green', (await tiles.count()) === 1);
-await gallery.getByRole('button', { name: /All/ }).click();
+await gallery.getByRole('button', { name: 'All', exact: true }).click();
 await gallery.fill('#q', 'nothing-matches-this');
 check('search with no match shows empty message', await gallery.getByText('No saves match that').isVisible());
 await gallery.fill('#q', '');
@@ -191,7 +191,7 @@ const names = Object.keys(zip.files).sort();
 check('zip has 2 images + sources.txt', names.length === 3 && names.includes('sources.txt'), names.join(', '));
 
 gallery.once('dialog', (d) => d.accept());
-await gallery.getByRole('button', { name: 'Remove' }).click();
+await gallery.getByRole('button', { name: 'Delete', exact: true }).click();
 await gallery.waitForTimeout(500);
 check('remove deletes selected tiles', (await tiles.count()) === 1, `tiles=${await tiles.count()}`);
 

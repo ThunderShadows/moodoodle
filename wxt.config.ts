@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: 'moodoodle',
     description: 'Keep the designs you love. Find more like them.',
-    permissions: ['contextMenus', 'unlimitedStorage'],
+    permissions: ['contextMenus', 'storage', 'unlimitedStorage'],
     host_permissions: ['<all_urls>'],
   },
 });

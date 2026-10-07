@@ -22,6 +22,7 @@
 - `<all_urls>` host access: to show the Keep button on images on any site you visit, and to download the image you choose to keep. Nothing from a page is stored until you press Keep.
 - `contextMenus`: adds "Keep image" and "Find similar" to the right-click menu on images.
 - `unlimitedStorage`: your collection is stored locally and can grow past the default quota.
+- `storage`: remembers small settings on your device, such as which board new keeps go into.
 
 **Privacy practices tab (Developer Dashboard)**
 - Data handled (declare even though it never leaves the device):

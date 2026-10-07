@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { getKeepingInto, setKeepingInto, resolveKeepingInto } from './settings';
 import { openImageStore } from './db';
@@ -23,5 +23,16 @@ describe('keeping-into setting', () => {
     await store.deleteBoard(board.id);
     expect(await resolveKeepingInto(store)).toBeUndefined();
     expect(await getKeepingInto()).toBeUndefined();
+  });
+});
+
+describe('keeping-into when storage fails', () => {
+  beforeEach(() => fakeBrowser.reset());
+
+  it('falls back to no board instead of failing the keep', async () => {
+    const store = openImageStore(`fail-${crypto.randomUUID()}`);
+    const spy = vi.spyOn(fakeBrowser.storage.local, 'get').mockRejectedValue(new Error('storage unavailable'));
+    expect(await resolveKeepingInto(store)).toBeUndefined();
+    spy.mockRestore();
   });
 });

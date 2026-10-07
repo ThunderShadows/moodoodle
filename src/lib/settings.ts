@@ -15,11 +15,18 @@ export async function setKeepingInto(id: string | undefined): Promise<void> {
   else await browser.storage.local.remove(KEEPING_INTO);
 }
 
-/** The board new keeps go into; a stale id (board deleted) is cleared and treated as none. */
+/**
+ * The board new keeps go into; a stale id (board deleted) is cleared and treated as none.
+ * Never throws: a broken setting must not stop an image from being kept.
+ */
 export async function resolveKeepingInto(store: Pick<ImageStore, 'getBoard'>): Promise<Board | undefined> {
-  const id = await getKeepingInto();
-  if (!id) return undefined;
-  const board = await store.getBoard(id);
-  if (!board) await setKeepingInto(undefined);
-  return board;
+  try {
+    const id = await getKeepingInto();
+    if (!id) return undefined;
+    const board = await store.getBoard(id);
+    if (!board) await setKeepingInto(undefined);
+    return board;
+  } catch {
+    return undefined;
+  }
 }

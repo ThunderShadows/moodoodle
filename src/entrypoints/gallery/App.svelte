@@ -3,28 +3,43 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { openImageStore } from '@/lib/db';
   import { filterImages } from '@/lib/search';
-  import { buildZip } from '@/lib/zip';
+  import { buildZip, slugify } from '@/lib/zip';
   import { lensUrl } from '@/lib/urls';
   import { createUrlCache } from '@/lib/urlcache';
-  import { COLOR_FAMILIES, type ColorFamily, type SavedImage } from '@/lib/types';
+  import { BoardNameInvalid, ENFORCE_BOARD_LIMIT, FREE_BOARD_LIMIT, boardCounts, boardQuota, nextBoardColor } from '@/lib/boards';
+  import { getKeepingInto, setKeepingInto } from '@/lib/settings';
+  import { COLOR_FAMILIES, type Board, type BoardColor, type ColorFamily, type SavedImage } from '@/lib/types';
+  import Sidebar from './Sidebar.svelte';
+  import AddToBoard from './AddToBoard.svelte';
 
   const store = openImageStore();
   const thumbCache = createUrlCache((id) => store.getThumb(id));
   let images = $state<SavedImage[]>([]);
+  let boards = $state<Board[]>([]);
   const thumbs = $state<Record<string, string>>({});
   let query = $state(new URLSearchParams(location.search).get('q') ?? '');
   let family = $state<ColorFamily | 'all'>('all');
+  let activeBoard = $state<string>('all');
   const selected = new SvelteSet<string>();
   let tagDraft = $state('');
   let includeSources = $state(true);
   let busy = $state(false);
 
-  const visible = $derived(filterImages(images, { query, family }));
+  const visible = $derived(filterImages(images, { query, family, board: activeBoard }));
   const only = $derived(selected.size === 1 ? images.find((i) => selected.has(i.id)) : undefined);
+  const counts = $derived(boardCounts(images));
+  const quota = $derived(boardQuota(boards.length, { enforce: ENFORCE_BOARD_LIMIT, plus: false }));
+  const activeBoardObj = $derived(boards.find((b) => b.id === activeBoard));
   const chips: (ColorFamily | 'all')[] = ['all', ...COLOR_FAMILIES];
   const label = (f: string) => f.charAt(0).toUpperCase() + f.slice(1);
 
+  async function loadBoards() {
+    boards = await store.listBoards();
+    if (activeBoard !== 'all' && activeBoard !== 'unsorted' && !boards.some((b) => b.id === activeBoard)) activeBoard = 'all';
+  }
+
   async function load() {
+    await loadBoards();
     images = await store.list();
     for (const img of images) {
       if (thumbs[img.id]) continue;
@@ -47,24 +62,91 @@
     else selected.add(id);
   }
 
+  function selectBoard(key: string) {
+    activeBoard = key;
+    selected.clear();
+  }
+
   async function saveTags() {
     if (!only) return;
     await store.setTags(only.id, tagDraft.split(','));
     await load();
   }
 
-  async function download() {
+  function errorText(e: unknown): string {
+    return e instanceof BoardNameInvalid ? e.message : 'Something went wrong. Try again?';
+  }
+
+  async function createBoard(name: string): Promise<Board | string> {
+    if (quota.atLimit) return `You've used your ${FREE_BOARD_LIMIT} free boards`;
+    try {
+      const board = await store.createBoard(name, nextBoardColor(boards));
+      await loadBoards();
+      return board;
+    } catch (e) {
+      return errorText(e);
+    }
+  }
+
+  async function createFromSidebar(name: string): Promise<string | undefined> {
+    const r = await createBoard(name);
+    return typeof r === 'string' ? r : undefined;
+  }
+
+  async function createAndAdd(name: string): Promise<string | undefined> {
+    const r = await createBoard(name);
+    if (typeof r === 'string') return r;
+    await addSelectedTo(r.id);
+    return undefined;
+  }
+
+  async function renameBoard(id: string, name: string): Promise<string | undefined> {
+    try {
+      await store.updateBoard(id, { name });
+      await loadBoards();
+      return undefined;
+    } catch (e) {
+      return errorText(e);
+    }
+  }
+
+  async function colorBoard(id: string, color: BoardColor) {
+    await store.updateBoard(id, { color });
+    await loadBoards();
+  }
+
+  async function deleteBoard(id: string) {
+    const b = boards.find((x) => x.id === id);
+    if (!b || !confirm(`Delete the board "${b.name}"? Its images stay in your collection.`)) return;
+    await store.deleteBoard(id);
+    if ((await getKeepingInto()) === id) await setKeepingInto(undefined);
+    await load();
+  }
+
+  async function addSelectedTo(boardId: string) {
+    await store.addToBoard([...selected], boardId);
+    await load();
+  }
+
+  async function removeSelectedFromBoard() {
+    if (!activeBoardObj) return;
+    await store.removeFromBoard([...selected], activeBoardObj.id);
+    selected.clear();
+    await load();
+  }
+
+  async function exportZip(list: SavedImage[], fileName: string) {
     busy = true;
     try {
       const items: { image: SavedImage; blob: Blob }[] = [];
-      for (const image of images.filter((i) => selected.has(i.id))) {
+      for (const image of list) {
         const blob = await store.getBlob(image.id);
         if (blob) items.push({ image, blob });
       }
       const zip = await buildZip(items, includeSources);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(zip);
-      a.download = `moodoodle-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.download = fileName;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
     } finally {
@@ -72,8 +154,18 @@
     }
   }
 
+  function download() {
+    return exportZip(images.filter((i) => selected.has(i.id)), `moodoodle-${new Date().toISOString().slice(0, 10)}.zip`);
+  }
+
+  function downloadBoard(id: string) {
+    const b = boards.find((x) => x.id === id);
+    if (!b) return;
+    return exportZip(images.filter((i) => i.boardIds.includes(id)), `moodoodle-${slugify(b.name) || 'board'}.zip`);
+  }
+
   async function remove() {
-    if (!confirm(`Remove ${selected.size} from your collection?`)) return;
+    if (!confirm(`Delete ${selected.size} from your collection?`)) return;
     for (const id of [...selected]) {
       await store.remove(id);
       thumbCache.drop(id);
@@ -101,39 +193,55 @@
     </div>
   </header>
 
-  <div class="chips" role="group" aria-label="Filter by color">
-    {#each chips as f (f)}
-      <button type="button" class="chip" class:on={family === f} aria-pressed={family === f} onclick={() => (family = f)}>
-        <span class="dot {f}"></span>{label(f)}
-      </button>
-    {/each}
-  </div>
+  <div class="layout">
+    <aside class="sidecol">
+      <Sidebar {boards} {counts} active={activeBoard} {quota}
+        onselect={selectBoard} oncreate={createFromSidebar} onrename={renameBoard}
+        oncolor={colorBoard} ondownload={downloadBoard} ondelete={deleteBoard} />
+    </aside>
 
-  {#if images.length === 0}
-    <section class="empty">
-      <p class="hand big">Nothing kept yet</p>
-      <p>Hover any image on the web and press <strong>Keep</strong>, or right-click it and choose <strong>Keep image</strong>.</p>
+    <section class="content">
+      {#if activeBoardObj}
+        <h2 class="boardtitle"><span class="swatch {activeBoardObj.color}"></span>{activeBoardObj.name}</h2>
+      {/if}
+
+      <div class="chips" role="group" aria-label="Filter by color">
+        {#each chips as f (f)}
+          <button type="button" class="chip" class:on={family === f} aria-pressed={family === f} onclick={() => (family = f)}>
+            <span class="dot {f}"></span>{label(f)}
+          </button>
+        {/each}
+      </div>
+
+      {#if images.length === 0}
+        <section class="empty">
+          <p class="hand big">Nothing kept yet</p>
+          <p>Hover any image on the web and press <strong>Keep</strong>, or right-click it and choose <strong>Keep image</strong>.</p>
+        </section>
+      {:else if visible.length === 0}
+        <section class="empty">
+          <p>{activeBoardObj && counts.byBoard[activeBoardObj.id] === undefined ? 'This board is empty. Pick some images and choose Add to board.' : 'No saves match that. Try another word or color.'}</p>
+        </section>
+      {:else}
+        <div class="grid">
+          {#each visible as img (img.id)}
+            <button type="button" class="tile" class:on={selected.has(img.id)} aria-pressed={selected.has(img.id)} onclick={() => toggle(img.id)}>
+              {#if thumbs[img.id]}
+                <img src={thumbs[img.id]} alt={img.pageTitle} width={img.width} height={img.height} loading="lazy" />
+              {/if}
+              <span class="meta">
+                <span class="title">{img.pageTitle}</span>
+                <span class="sub">{img.site}{img.tags.length ? ` · ${img.tags.join(', ')}` : ''}</span>
+                <span class="palette" aria-hidden="true">
+                  {#each img.palette as hex (hex)}<span style="background:{hex}"></span>{/each}
+                </span>
+              </span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     </section>
-  {:else if visible.length === 0}
-    <section class="empty"><p>No saves match that. Try another word or color.</p></section>
-  {:else}
-    <div class="grid">
-      {#each visible as img (img.id)}
-        <button type="button" class="tile" class:on={selected.has(img.id)} aria-pressed={selected.has(img.id)} onclick={() => toggle(img.id)}>
-          {#if thumbs[img.id]}
-            <img src={thumbs[img.id]} alt={img.pageTitle} width={img.width} height={img.height} loading="lazy" />
-          {/if}
-          <span class="meta">
-            <span class="title">{img.pageTitle}</span>
-            <span class="sub">{img.site}{img.tags.length ? ` · ${img.tags.join(', ')}` : ''}</span>
-            <span class="palette" aria-hidden="true">
-              {#each img.palette as hex (hex)}<span style="background:{hex}"></span>{/each}
-            </span>
-          </span>
-        </button>
-      {/each}
-    </div>
-  {/if}
+  </div>
 
   {#if selected.size > 0}
     <div class="selbar">
@@ -143,9 +251,11 @@
         <input id="tags" class="tags" placeholder="add tags, like cute, cat" bind:value={tagDraft} onchange={saveTags} />
         <button type="button" class="light" onclick={similar}>Find similar</button>
       {/if}
+      <AddToBoard {boards} onadd={addSelectedTo} oncreate={createAndAdd} />
+      {#if activeBoardObj}<button type="button" class="ghost" onclick={removeSelectedFromBoard}>Remove from board</button>{/if}
       <button type="button" class="accent" onclick={download} disabled={busy}>{busy ? 'Packing…' : 'Download .zip'}</button>
       <label class="check"><input type="checkbox" bind:checked={includeSources} /> with sources</label>
-      <button type="button" class="ghost" onclick={remove}>Remove</button>
+      <button type="button" class="ghost" onclick={remove}>Delete</button>
     </div>
   {/if}
 </main>
@@ -159,6 +269,11 @@
   .big { font-size: 32px; color: var(--ink); margin: 0; }
   .search { flex: 1 1 320px; max-width: 520px; }
   .search input { width: 100%; height: 52px; padding: 0 20px; border: 2px solid var(--line); border-radius: 999px; background: var(--card); font-size: 16px; }
+  .layout { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  .sidecol { flex: 1 1 220px; max-width: 260px; }
+  .content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+  .boardtitle { display: flex; align-items: center; gap: 10px; margin: 0; font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; }
+  @media (max-width: 640px) { .sidecol { max-width: none; flex-basis: 100%; } }
   .chips { display: flex; flex-wrap: wrap; gap: 10px; }
   .chip { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 999px; border: 2px solid var(--line); background: var(--card); font-weight: 600; cursor: pointer; }
   .chip.on { background: var(--ink); border-color: var(--ink); color: #FFFFFF; }
