@@ -38,6 +38,7 @@ const files = {
   '/icon.png': await png('#E3D9FB', '#5B3FB0', 32),
   '/blocked.png': await png('#FFF0B8', '#8A6400', 300),
   '/big.png': await png('#F7B2D9', '#8E3A6B', 1200),
+  '/heart.png': await png('#F7D3E6', '#B03A78', 300),
 };
 await maker.close();
 
@@ -220,6 +221,63 @@ const thumbInfo = await sw.evaluate(async (id) => {
   return thumb && full ? { type: thumb.type, thumb: thumb.bytes.byteLength, full: full.bytes.byteLength } : null;
 }, bigKeep.image?.id);
 check('large image gets a smaller WebP thumbnail', thumbInfo?.type === 'image/webp' && thumbInfo.thumb < thumbInfo.full, JSON.stringify(thumbInfo));
+
+// ── Boards ───────────────────────────────────────────────
+await gallery.setViewportSize({ width: 1280, height: 860 });
+await gallery.reload();
+await gallery.waitForTimeout(500);
+await gallery.getByRole('button', { name: '+ New board' }).click();
+await gallery.fill('#newboard', 'Ocean study');
+await gallery.getByRole('button', { name: 'Add', exact: true }).click();
+await gallery.waitForTimeout(300);
+check('board created from the sidebar', await gallery.getByRole('button', { name: /^Ocean study/ }).isVisible());
+
+await gallery.getByRole('button', { name: '+ New board' }).click();
+await gallery.fill('#newboard', '  ocean   STUDY ');
+await gallery.getByRole('button', { name: 'Add', exact: true }).click();
+await gallery.waitForTimeout(200);
+check('duplicate board name is refused', await gallery.getByText('You already have a board with that name').isVisible());
+await gallery.getByRole('button', { name: 'Cancel' }).click();
+
+await popup.reload();
+await popup.waitForTimeout(500);
+await popup.selectOption('.keepinto select', { label: 'Ocean study' });
+await popup.waitForTimeout(200);
+const keptInto = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'keep', imageUrl: u, pageUrl: u, pageTitle: 'Heart' }), `${base}/heart.png`);
+check('new keep lands in the keeping-into board', keptInto.status === 'kept' && keptInto.boardName === 'Ocean study', JSON.stringify({ s: keptInto.status, b: keptInto.boardName }));
+const dupInto = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'keep', imageUrl: u, pageUrl: u, pageTitle: 'Big' }), `${base}/big.png`);
+check('already-kept image is added to the board', dupInto.status === 'duplicate' && dupInto.addedToBoard === true, JSON.stringify({ s: dupInto.status, a: dupInto.addedToBoard }));
+
+await gallery.reload();
+await gallery.waitForTimeout(500);
+await gallery.getByRole('button', { name: /^Ocean study/ }).click();
+await gallery.waitForTimeout(200);
+check('board view shows its 2 images', (await tiles.count()) === 2, `tiles=${await tiles.count()}`);
+await tiles.nth(0).click();
+await gallery.getByRole('button', { name: 'Remove from board' }).click();
+await gallery.waitForTimeout(300);
+check('remove from board leaves 1 in the board', (await tiles.count()) === 1, `tiles=${await tiles.count()}`);
+await gallery.getByRole('button', { name: /^All \d+$/ }).click();
+await gallery.waitForTimeout(200);
+const allAfterRemove = await tiles.count();
+
+await gallery.getByRole('button', { name: /^Ocean study/ }).click();
+await gallery.getByRole('button', { name: 'Board options for Ocean study' }).click();
+const bdl = gallery.waitForEvent('download');
+await gallery.getByRole('button', { name: 'Download board' }).click();
+const boardZipPath = path.join(shots, 'board.zip');
+await (await bdl).saveAs(boardZipPath);
+const boardZip = await JSZip.loadAsync(fs.readFileSync(boardZipPath));
+check('board zip has the board image + sources', Object.keys(boardZip.files).length === 2, Object.keys(boardZip.files).join(', '));
+await gallery.screenshot({ path: path.join(shots, '10-board.png') });
+
+await gallery.getByRole('button', { name: 'Board options for Ocean study' }).click();
+gallery.once('dialog', (d) => d.accept());
+await gallery.getByRole('button', { name: 'Delete board' }).click();
+await gallery.waitForTimeout(400);
+check('deleting a board keeps its images', (await gallery.getByRole('button', { name: /^Ocean study/ }).count()) === 0 && (await tiles.count()) === allAfterRemove, `tiles=${await tiles.count()} expected=${allAfterRemove}`);
+const afterDelete = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'keep', imageUrl: u, pageUrl: u, pageTitle: 'Sky' }), `${base}/sky.png?v=2`);
+check('keeping-into clears when its board is deleted', afterDelete.status === 'kept' && !afterDelete.boardName, JSON.stringify({ s: afterDelete.status, b: afterDelete.boardName }));
 
 await ctx.close();
 server.close();
