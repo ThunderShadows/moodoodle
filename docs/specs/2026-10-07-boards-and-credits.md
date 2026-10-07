@@ -1,7 +1,7 @@
 # moodoodle v1.2: Boards + Save with credit
 
 **Date:** 2026-10-07
-**Status:** reviewed 2026-10-07 (answers in §11); find-similar data source pending
+**Status:** reviewed 2026-10-07; all decisions made (§11, §12)
 **Builds on:** `docs/spec.md` (v1), `docs/research/2026-10-07-novelty-policy-review.md`
 
 ## 1. Why
@@ -273,8 +273,15 @@ designed in the mockup canvas ("Find similar: orbit overlay"):
 | Inner: your saves | On-device image embeddings (Transformers.js with a CLIP-style model) computed when an image is kept; nearest neighbours by cosine similarity | Free | Nothing leaves the device |
 | Outer: the web | Needs a visual-search API (e.g. Google Cloud Vision web detection, ~$3.50 per 1,000 searches; SerpApi Google Lens, from $25 per 1,000). Google Lens itself has no public API, and scraping it would break Google's terms and the store's rules | Paid per search; the key must sit behind a small server we run | The image URL goes to our server and the API provider; needs a privacy-policy update and the CWS disclosure |
 
-**Decision pending (yours):** whether the outer ring ships, and on which tier. Whatever we pick,
-the inner ring ships in v1.2 and the overlay design doesn't change.
+**Decision (2026-10-07): inner ring only for now.** v1.2 ships the overlay with your-saves results and the
+"Open in Google Lens ↗" link. No server, no API cost, nothing new leaves the device. The outer ring is parked
+until Plus is selling; when it returns it'll be Plus-only behind a small key-holding server.
+
+Empty and edge states for v1.2:
+- Fewer than 6 similar saves: show the ones found; with none, the center image shows the line
+  *"Nothing like this in your saves yet"* and the Lens link is emphasized.
+- Embeddings are computed at keep time; existing images are backfilled in the background after the update,
+  and the overlay shows *"Still learning your collection…"* until the backfill finishes.
 
 ## 12. Answers to review questions (2026-10-07)
 
@@ -290,4 +297,4 @@ the inner ring ships in v1.2 and the overlay design doesn't change.
 4. Credit UI: tile line + badge, details panel with editing, `CREDITS.md`
 5. Respect-artists rules (NoAI, platform list, worker guard)
 6. Site fixtures + any proven-necessary adapters; e2e; privacy/listing updates
-7. Find similar orbit overlay + on-device embeddings for the inner ring (outer ring per the §11 decision)
+7. Find similar orbit overlay + on-device embeddings for the inner ring (outer ring parked)
