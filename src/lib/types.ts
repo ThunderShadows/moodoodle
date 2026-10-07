@@ -80,3 +80,28 @@ export type Message =
   | { type: 'lens'; imageUrl: string }
   | { type: 'collect-images' }
   | { type: 'toast'; result: KeepResult };
+
+/** Credit facts read from the page around a kept image (content script). */
+export interface PageCredit {
+  jsonLd?: {
+    title?: string;
+    creator?: string;
+    creatorUrl?: string;
+    creditText?: string;
+    copyrightNotice?: string;
+    license?: string;
+    acquireLicensePage?: string;
+  };
+  relLicense?: string;
+  metaAuthor?: string;
+  noAI: boolean;
+}
+
+/** Credit facts read from the image file's XMP packet (worker). */
+export interface XmpCredit {
+  creator?: string;
+  rights?: string;
+  webStatement?: string;
+  license?: string;
+  noAI: boolean;
+}
