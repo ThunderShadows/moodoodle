@@ -53,17 +53,20 @@ No competitor we found does 2 or 3. That's the differentiator against Moodsnap.
   delete board. Deleting asks for confirmation, keeps the images, and clears "keeping into" if it pointed there.
 - Removing an image from the library removes it from every board.
 
-### 3.2 Free vs paid (agreed; enforced when payments ship)
+### 3.2 Free vs Plus (decided 2026-10-07; enforced in Plan D, payments)
 
 | | Free | Plus |
 |---|---|---|
+| Keep, gallery, search, credits & badges, Find similar | ✅ | ✅ |
 | Boards | **3** | Unlimited |
-| Images per board | **Unlimited** | Unlimited |
-| Images in the library | Unlimited | Unlimited |
-| Credits, badges, CREDITS.md | ✅ | ✅ |
+| Images per board / in the library | Unlimited | Unlimited |
+| **Download (.zip with CREDITS.md, single picks or whole boards)** | **No** | ✅ |
+| Palette swatches, line-art (later) | – | ✅ |
 
-There's no image cap anywhere: images live on the user's own disk (`unlimitedStorage`), so a cap would
-cost us nothing to lift and would only feel petty. The free tier is the number of boards.
+**Pricing:** lifetime, one-time via Dodo Payments: **$19 for 1 browser, $29 for 3 browsers**, 30-day refund,
+regional pricing where Dodo supports it, an honest dated launch discount (no fake scarcity).
+Dodo emails a license key; the extension activates it (device limit = plan) and validates it with Dodo's
+public endpoint, with an offline grace period. Modeled on nocodewebscraper.com's one-time + license-key flow.
 
 **How the free tier is shown** (mockup: "Boards sidebar: free tier at its limit"):
 - Under the board list, a 3-dot meter and "2 of 3 free boards". Always visible, never a popup.
