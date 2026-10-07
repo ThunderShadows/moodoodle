@@ -1,3 +1,4 @@
+import { BADGE_LABEL, badgeFor, licenseLabel } from './license';
 import type { ColorFamily, SavedImage } from './types';
 
 export interface Filter {
@@ -14,7 +15,10 @@ function inBoard(img: SavedImage, board: Filter['board']): boolean {
 }
 
 function haystack(img: SavedImage): string {
-  return [img.pageTitle, img.site, img.colorFamily, ...img.tags].join(' ').toLowerCase();
+  const c = img.credit;
+  return [img.pageTitle, img.site, img.colorFamily, ...img.tags, c.creator ?? '', c.title ?? '', licenseLabel(c.license), BADGE_LABEL[badgeFor(c.license)]]
+    .join(' ')
+    .toLowerCase();
 }
 
 export function filterImages(images: SavedImage[], f: Filter): SavedImage[] {

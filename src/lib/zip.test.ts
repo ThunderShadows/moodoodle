@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
-import { buildZip, fileNameFor, slugify } from './zip';
+import { buildZip, buildCreditsMd, fileNameFor, slugify } from './zip';
 import { emptyCredit, type SavedImage } from './types';
 
 const img = (over: Partial<SavedImage>): SavedImage => ({
@@ -32,8 +32,36 @@ describe('fileNameFor', () => {
   });
 });
 
+describe('buildCreditsMd', () => {
+  it('writes a TASL entry per file, with an honest default when nothing is stated', () => {
+    const known = img({
+      pageTitle: 'Page', imageUrl: 'https://x.com/flower.png', pageUrl: 'https://x.com/post',
+      credit: { ...emptyCredit(), title: 'Flower study', creator: 'Jane Doe', creatorUrl: 'https://x.com/jane',
+        license: { kind: 'cc', code: 'by', version: '4.0', url: 'https://creativecommons.org/licenses/by/4.0/' }, confidence: 'stated' },
+    });
+    const unknown = img({ pageTitle: 'Ocean', pageUrl: 'https://x.com/ocean' });
+    expect(buildCreditsMd([{ name: 'flower-study.png', image: known }, { name: 'ocean.png', image: unknown }])).toBe([
+      '# Credits',
+      '',
+      '## flower-study.png',
+      '- **Title:** Flower study',
+      '- **Creator:** Jane Doe (https://x.com/jane)',
+      '- **Source:** https://x.com/post',
+      '- **License:** CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)',
+      '- **Credit line:** “Flower study” by Jane Doe, CC BY 4.0',
+      '',
+      '## ocean.png',
+      '- **Title:** Ocean',
+      '- **Creator:** unknown',
+      '- **Source:** https://x.com/ocean',
+      '- **License:** not stated, treat as all rights reserved (reference only)',
+      '',
+    ].join('\n'));
+  });
+});
+
 describe('buildZip', () => {
-  it('contains every image and a sources.txt when asked', async () => {
+  it('contains every image and a CREDITS.md when asked', async () => {
     const zipBlob = await buildZip(
       [
         { image: img({}), blob: new Blob([new Uint8Array([1])], { type: 'image/png' }) },
@@ -43,15 +71,12 @@ describe('buildZip', () => {
     );
     expect(zipBlob.type).toBe('application/zip');
     const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer());
-    expect(Object.keys(zip.files).sort()).toEqual(['sources.txt', 'spring-doodles-2.png', 'spring-doodles.png']);
-    const sources = await zip.file('sources.txt')!.async('string');
-    expect(sources.split('\n')).toEqual([
-      'file\tpage\timage',
-      'spring-doodles.png\thttps://x.com/p\thttps://x.com/a.png',
-      'spring-doodles-2.png\thttps://x.com/p\thttps://x.com/b.png',
-    ]);
+    expect(Object.keys(zip.files).sort()).toEqual(['CREDITS.md', 'spring-doodles-2.png', 'spring-doodles.png']);
+    const credits = await zip.file('CREDITS.md')!.async('string');
+    expect(credits).toContain('## spring-doodles.png');
+    expect(credits).toContain('## spring-doodles-2.png');
   });
-  it('omits sources.txt when not asked', async () => {
+  it('omits CREDITS.md when not asked', async () => {
     const zipBlob = await buildZip([{ image: img({}), blob: new Blob([new Uint8Array([1])]) }], false);
     const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer());
     expect(Object.keys(zip.files)).toEqual(['spring-doodles.png']);

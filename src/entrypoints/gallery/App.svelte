@@ -8,9 +8,11 @@
   import { createUrlCache } from '@/lib/urlcache';
   import { BoardNameInvalid, ENFORCE_BOARD_LIMIT, FREE_BOARD_LIMIT, boardCounts, boardQuota, nextBoardColor } from '@/lib/boards';
   import { getKeepingInto, setKeepingInto } from '@/lib/settings';
-  import { COLOR_FAMILIES, type Board, type BoardColor, type ColorFamily, type SavedImage } from '@/lib/types';
+  import { COLOR_FAMILIES, type Board, type BoardColor, type ColorFamily, type Credit, type SavedImage } from '@/lib/types';
   import Sidebar from './Sidebar.svelte';
   import AddToBoard from './AddToBoard.svelte';
+  import Details from './Details.svelte';
+  import { BADGE_LABEL, badgeFor } from '@/lib/license';
 
   const store = openImageStore();
   const thumbCache = createUrlCache((id) => store.getThumb(id));
@@ -21,7 +23,6 @@
   let family = $state<ColorFamily | 'all'>('all');
   let activeBoard = $state<string>('all');
   const selected = new SvelteSet<string>();
-  let tagDraft = $state('');
   let includeSources = $state(true);
   let busy = $state(false);
 
@@ -55,7 +56,6 @@
     return () => document.removeEventListener('visibilitychange', onVisible);
   });
 
-  $effect(() => { tagDraft = only ? only.tags.join(', ') : ''; });
 
   function toggle(id: string) {
     if (selected.has(id)) selected.delete(id);
@@ -67,9 +67,15 @@
     selected.clear();
   }
 
-  async function saveTags() {
+  async function saveTags(text: string) {
     if (!only) return;
-    await store.setTags(only.id, tagDraft.split(','));
+    await store.setTags(only.id, text.split(','));
+    await load();
+  }
+
+  async function saveCredit(credit: Credit) {
+    if (!only) return;
+    await store.setCredit(only.id, credit);
     await load();
   }
 
@@ -232,6 +238,13 @@
               <span class="meta">
                 <span class="title">{img.pageTitle}</span>
                 <span class="sub">{img.site}{img.tags.length ? ` · ${img.tags.join(', ')}` : ''}</span>
+                {#if img.credit.creator}
+                  <span class="by">{img.credit.fieldSources.creator === 'meta' ? 'probably by' : 'by'} {img.credit.creator}</span>
+                {/if}
+                <span class="chipsrow">
+                  <span class="badge {badgeFor(img.credit.license)}">{BADGE_LABEL[badgeFor(img.credit.license)]}</span>
+                  {#if img.credit.noAI}<span class="badge noai">No AI</span>{/if}
+                </span>
                 <span class="palette" aria-hidden="true">
                   {#each img.palette as hex (hex)}<span style="background:{hex}"></span>{/each}
                 </span>
@@ -243,18 +256,20 @@
     </section>
   </div>
 
+  {#if only}
+    <Details image={only} tags={only.tags.join(', ')} onsavecredit={saveCredit} onsavetags={saveTags} onclose={() => selected.clear()} />
+  {/if}
+
   {#if selected.size > 0}
     <div class="selbar">
       <span class="hand">{selected.size} picked</span>
       {#if only}
-        <label for="tags" class="sr">Tags, separated by commas</label>
-        <input id="tags" class="tags" placeholder="add tags, like cute, cat" bind:value={tagDraft} onchange={saveTags} />
         <button type="button" class="light" onclick={similar}>Find similar</button>
       {/if}
       <AddToBoard {boards} onadd={addSelectedTo} oncreate={createAndAdd} />
       {#if activeBoardObj}<button type="button" class="ghost" onclick={removeSelectedFromBoard}>Remove from board</button>{/if}
       <button type="button" class="accent" onclick={download} disabled={busy}>{busy ? 'Packing…' : 'Download .zip'}</button>
-      <label class="check"><input type="checkbox" bind:checked={includeSources} /> with sources</label>
+      <label class="check"><input type="checkbox" bind:checked={includeSources} /> with credits</label>
       <button type="button" class="ghost" onclick={remove}>Delete</button>
     </div>
   {/if}
@@ -290,6 +305,8 @@
   .meta { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; }
   .title { font-weight: 600; font-size: 15px; }
   .sub { font-size: 13px; color: var(--muted); }
+  .by { font-size: 13px; font-weight: 600; }
+  .chipsrow { display: flex; gap: 6px; flex-wrap: wrap; }
   .palette { display: flex; gap: 4px; }
   .palette span { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(42,36,51,.12); }
   .empty { text-align: center; padding: 80px 16px; color: var(--muted); }

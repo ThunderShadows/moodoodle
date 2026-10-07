@@ -107,8 +107,8 @@ const order = await sw.evaluate(async () => {
 const tag = async (name, text) => {
   const tile = tiles.nth(order.indexOf(name));
   await tile.click();
-  await gallery.fill('#tags', text);
-  await gallery.press('#tags', 'Enter');
+  await gallery.fill('#d-tags', text);
+  await gallery.getByRole('button', { name: 'Save', exact: true }).click();
   await gallery.waitForTimeout(250);
   await tile.click();
 };

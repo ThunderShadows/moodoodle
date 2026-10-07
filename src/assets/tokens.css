@@ -14,3 +14,8 @@ button, input { font: inherit; color: inherit; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 5px; flex-shrink: 0; }
 .swatch.peach { background: #FFB58F; } .swatch.mint { background: #A8E6C1; } .swatch.lilac { background: #C9B8FA; }
 .swatch.butter { background: #FFE27A; } .swatch.sky { background: #A9CCF5; } .swatch.rose { background: #F7B2D9; }
+.badge { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge.reuse { background: #CDEFD9; color: #1F5C3D; }
+.badge.conditions { background: #FFE7C7; color: #7A4A00; }
+.badge.reference { background: #ECE8F3; color: #4A4256; }
+.badge.noai { background: #2A2433; color: #FFFFFF; }

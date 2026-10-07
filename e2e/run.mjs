@@ -173,8 +173,8 @@ check('search with no match shows empty message', await gallery.getByText('No sa
 await gallery.fill('#q', '');
 
 await tiles.nth(0).click();
-await gallery.fill('#tags', 'Cute, cat');
-await gallery.press('#tags', 'Enter');
+await gallery.fill('#d-tags', 'Cute, cat');
+await gallery.getByRole('button', { name: 'Save', exact: true }).click();
 await gallery.waitForTimeout(300);
 await gallery.fill('#q', 'cat');
 check('tags save and are searchable', (await tiles.count()) === 1 && (await tiles.nth(0).innerText()).includes('cute, cat'));
@@ -189,7 +189,7 @@ const zipPath = path.join(shots, 'export.zip');
 await download.saveAs(zipPath);
 const zip = await JSZip.loadAsync(fs.readFileSync(zipPath));
 const names = Object.keys(zip.files).sort();
-check('zip has 2 images + sources.txt', names.length === 3 && names.includes('sources.txt'), names.join(', '));
+check('zip has 2 images + CREDITS.md', names.length === 3 && names.includes('CREDITS.md'), names.join(', '));
 
 gallery.once('dialog', (d) => d.accept());
 await gallery.getByRole('button', { name: 'Delete', exact: true }).click();
@@ -268,7 +268,7 @@ await gallery.getByRole('button', { name: 'Download board' }).click();
 const boardZipPath = path.join(shots, 'board.zip');
 await (await bdl).saveAs(boardZipPath);
 const boardZip = await JSZip.loadAsync(fs.readFileSync(boardZipPath));
-check('board zip has the board image + sources', Object.keys(boardZip.files).length === 2, Object.keys(boardZip.files).join(', '));
+check('board zip has the board image + CREDITS.md', Object.keys(boardZip.files).length === 2, Object.keys(boardZip.files).join(', '));
 await gallery.screenshot({ path: path.join(shots, '10-board.png') });
 
 await gallery.getByRole('button', { name: 'Board options for Ocean study' }).click();

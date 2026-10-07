@@ -42,3 +42,15 @@ describe('filterImages by board', () => {
     expect(filterImages(boarded, { query: '', family: 'all' })).toHaveLength(3);
   });
 });
+
+describe('filterImages by credit', () => {
+  it('finds images by creator name and license words', () => {
+    const list = [
+      img('1', { credit: { ...emptyCredit(), creator: 'Jane Doe', license: { kind: 'cc', code: 'by-nc', version: '4.0', url: 'u' } } }),
+      img('2', {}),
+    ];
+    expect(filterImages(list, { query: 'jane', family: 'all' }).map((i) => i.id)).toEqual(['1']);
+    expect(filterImages(list, { query: 'cc by-nc', family: 'all' }).map((i) => i.id)).toEqual(['1']);
+    expect(filterImages(list, { query: 'reference', family: 'all' }).map((i) => i.id)).toEqual(['2']);
+  });
+});
