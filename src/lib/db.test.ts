@@ -1,12 +1,13 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
 import { openImageStore, normalizeTags, type NewImage } from './db';
+import { emptyCredit } from './types';
 
 function sample(url: string): NewImage {
   return {
     imageUrl: url, pageUrl: 'https://site.com/p', pageTitle: 'Page', site: 'site.com',
     width: 300, height: 200, mimeType: 'image/png', byteSize: 3,
-    palette: ['#FFD8C2'], colorFamily: 'orange', tags: [],
+    palette: ['#FFD8C2'], colorFamily: 'orange', tags: [], boardIds: [], credit: emptyCredit(),
   };
 }
 
@@ -96,5 +97,31 @@ describe('thumbnails', () => {
     const store = openImageStore(name);
     expect((await store.list()).map((i) => i.id)).toEqual(['old']);
     expect((await store.getThumb('old'))?.type).toBe('image/png');
+  });
+});
+
+describe('database v3', () => {
+  it('upgrades a v1.1 (v2) collection: keeps images, thumbnails and tags, adds boards and empty credits', async () => {
+    const name = `v2-${crypto.randomUUID()}`;
+    const { openDB } = await import('idb');
+    const v2 = await openDB(name, 2, {
+      upgrade(db) {
+        const images = db.createObjectStore('images', { keyPath: 'id' });
+        images.createIndex('byUrl', 'imageUrl', { unique: true });
+        images.createIndex('bySavedAt', 'savedAt');
+        db.createObjectStore('blobs');
+        db.createObjectStore('thumbs');
+      },
+    });
+    const { boardIds: _b, credit: _c, ...legacy } = sample('https://x.com/old.png');
+    await v2.put('images', { ...legacy, id: 'old', savedAt: '2026-10-06T10:00:00.000Z', tags: ['cat'] });
+    await v2.put('thumbs', { bytes: new Uint8Array([9]).buffer, type: 'image/webp' }, 'old');
+    v2.close();
+
+    const store = openImageStore(name);
+    const [img] = await store.list();
+    expect(img).toMatchObject({ id: 'old', tags: ['cat'], boardIds: [], credit: emptyCredit() });
+    expect((await store.getThumb('old'))?.type).toBe('image/webp');
+    expect(await store.listBoards()).toEqual([]);
   });
 });

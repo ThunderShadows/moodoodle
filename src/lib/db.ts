@@ -1,10 +1,11 @@
 import { openDB, type DBSchema } from 'idb';
-import type { SavedImage } from './types';
+import { emptyCredit, type Board, type SavedImage } from './types';
 
 interface Schema extends DBSchema {
-  images: { key: string; value: SavedImage; indexes: { byUrl: string; bySavedAt: string } };
+  images: { key: string; value: SavedImage; indexes: { byUrl: string; bySavedAt: string; byBoard: string } };
   blobs: { key: string; value: { bytes: ArrayBuffer; type: string } };
   thumbs: { key: string; value: { bytes: ArrayBuffer; type: string } };
+  boards: { key: string; value: Board };
 }
 
 export type NewImage = Omit<SavedImage, 'id' | 'savedAt'>;
@@ -18,6 +19,7 @@ export interface ImageStore {
   getThumb(id: string): Promise<Blob | undefined>;
   setTags(id: string, tags: string[]): Promise<void>;
   remove(id: string): Promise<void>;
+  listBoards(): Promise<Board[]>;
 }
 
 export function normalizeTags(tags: string[]): string[] {
@@ -25,8 +27,8 @@ export function normalizeTags(tags: string[]): string[] {
 }
 
 export function openImageStore(name = 'moodoodle', now: () => Date = () => new Date()): ImageStore {
-  const dbp = openDB<Schema>(name, 2, {
-    upgrade(db, oldVersion) {
+  const dbp = openDB<Schema>(name, 3, {
+    async upgrade(db, oldVersion, _newVersion, tx) {
       if (oldVersion < 1) {
         const images = db.createObjectStore('images', { keyPath: 'id' });
         images.createIndex('byUrl', 'imageUrl', { unique: true });
@@ -34,6 +36,18 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
         db.createObjectStore('blobs');
       }
       if (oldVersion < 2) db.createObjectStore('thumbs');
+      if (oldVersion < 3) {
+        db.createObjectStore('boards', { keyPath: 'id' });
+        const images = tx.objectStore('images');
+        images.createIndex('byBoard', 'boardIds', { multiEntry: true });
+        // Give pre-v1.2 images the new fields (only IDB awaits inside the upgrade transaction).
+        let cursor = await images.openCursor();
+        while (cursor) {
+          const v = cursor.value;
+          if (!v.boardIds || !v.credit) await cursor.update({ ...v, boardIds: v.boardIds ?? [], credit: v.credit ?? emptyCredit() });
+          cursor = await cursor.continue();
+        }
+      }
     },
   });
 
@@ -83,6 +97,9 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
         tx.objectStore('thumbs').delete(id),
         tx.done,
       ]);
+    },
+    async listBoards() {
+      return (await (await dbp).getAll('boards')).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
   };
 }

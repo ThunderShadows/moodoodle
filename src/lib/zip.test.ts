@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
 import { buildZip, fileNameFor, slugify } from './zip';
-import type { SavedImage } from './types';
+import { emptyCredit, type SavedImage } from './types';
 
 const img = (over: Partial<SavedImage>): SavedImage => ({
   id: 'a', imageUrl: 'https://x.com/a.png', pageUrl: 'https://x.com/p', pageTitle: 'Spring Doodles',
   site: 'x.com', savedAt: '2026-10-06T10:00:00.000Z', width: 1, height: 1, mimeType: 'image/png',
-  byteSize: 1, palette: [], colorFamily: 'neutral', tags: [], ...over,
+  byteSize: 1, palette: [], colorFamily: 'neutral', tags: [], boardIds: [], credit: emptyCredit(), ...over,
 });
 
 describe('slugify', () => {

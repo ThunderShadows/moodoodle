@@ -1,7 +1,7 @@
 import type { ImageStore } from './db';
 import { extractPalette, dominantFamily } from './color';
 import { isKeepableUrl } from './urls';
-import { MAX_BYTES, type KeepErrorReason, type KeepManyResult, type KeepResult } from './types';
+import { MAX_BYTES, emptyCredit, type KeepErrorReason, type KeepManyResult, type KeepResult } from './types';
 
 export interface Decoded {
   width: number;
@@ -72,6 +72,8 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
         palette,
         colorFamily: dominantFamily(palette),
         tags: [],
+        boardIds: [],
+        credit: emptyCredit(),
       },
       blob,
       decoded.thumb,
