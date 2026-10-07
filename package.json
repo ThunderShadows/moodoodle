@@ -2,7 +2,7 @@
   "name": "moodoodle",
   "description": "Keep the designs you love. Find more like them.",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",

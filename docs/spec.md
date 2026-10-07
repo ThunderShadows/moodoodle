@@ -80,5 +80,12 @@ custom fonts in the content script. Touch targets ≥44 px; text contrast ≥4.5
   embeddings), **Send to Canva**: upload to the user's Canva library through the Connect
   Assets API (OAuth, so it needs a small backend plus Canva review). Filling a template
   (Autofill / Brand Templates) needs Canva Enterprise, so it's not planned.
-- Firefox/Safari, sync between devices, a fallback for sites that block hotlinking (grab
-  the pixels from the page's own canvas).
+- **Next differentiator:** save with credit (creator/license capture, reuse badges, `CREDITS.md`).
+  See `docs/research/2026-10-07-novelty-policy-review.md`.
+- Firefox/Safari, sync between devices.
+
+## 8. Never build
+
+- Grabbing pixels from the page's own canvas when a site blocks the download. That gets around
+  the site's restriction, which the Chrome Web Store treats as facilitating unauthorized access.
+- Store or UI copy that says "scrape" or "download any image".
