@@ -3,7 +3,8 @@
   import { browser, type Browser } from 'wxt/browser';
   import { openImageStore } from '@/lib/db';
   import { isSameLocalDay } from '@/lib/dates';
-  import type { KeepManyResult, Message, SavedImage } from '@/lib/types';
+  import { resolveKeepingInto, setKeepingInto } from '@/lib/settings';
+  import type { Board, KeepManyResult, Message, SavedImage } from '@/lib/types';
 
   type Tab = Browser.tabs.Tab;
   const store = openImageStore();
@@ -14,6 +15,13 @@
   let busy = $state(false);
   let todayCount = $state(0);
   let tab: Tab | undefined;
+  let boards = $state<Board[]>([]);
+  let keepingInto = $state('');
+
+  async function loadBoards() {
+    boards = await store.listBoards();
+    keepingInto = (await resolveKeepingInto(store))?.id ?? '';
+  }
 
   async function loadRecent() {
     const all = await store.list();
@@ -28,6 +36,7 @@
   }
 
   onMount(async () => {
+    loadBoards();
     loadRecent();
     [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id === undefined) return;
@@ -66,6 +75,15 @@
     <label for="pq" class="sr">Search saves</label>
     <input id="pq" type="search" placeholder="Find a save…" bind:value={query} />
   </form>
+  {#if boards.length}
+    <label class="keepinto">
+      <span>Keeping into</span>
+      <select bind:value={keepingInto} onchange={() => setKeepingInto(keepingInto || undefined)}>
+        <option value="">No board</option>
+        {#each boards as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+      </select>
+    </label>
+  {/if}
   {#if recent.length}
     <span class="label">Recently kept</span>
     <div class="recent">
@@ -94,6 +112,8 @@
   .hand { font-family: var(--hand); font-size: 19px; color: var(--muted); }
   input[type='search'] { width: 100%; height: 44px; padding: 0 16px; border: 2px solid var(--line); border-radius: 999px; background: var(--card); }
   .label { font-weight: 600; font-size: 13px; color: var(--muted); }
+  .keepinto { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 600; font-size: 14px; }
+  .keepinto select { flex: 1; max-width: 200px; height: 40px; padding: 0 10px; border: 2px solid var(--line); border-radius: 12px; background: var(--card); font: inherit; }
   .recent { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   .recent img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--line); }
   .card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 16px; background: var(--card); }
