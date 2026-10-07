@@ -125,3 +125,44 @@ describe('database v3', () => {
     expect(await store.listBoards()).toEqual([]);
   });
 });
+
+describe('boards in the store', () => {
+  it('creates, renames, recolors and lists boards in creation order', async () => {
+    const store = freshStore();
+    const a = await store.createBoard('Ocean study', 'sky');
+    const b = await store.createBoard('Plants', 'mint');
+    await store.updateBoard(a.id, { name: 'Ocean refs', color: 'lilac' });
+    expect((await store.listBoards()).map((x) => [x.name, x.color])).toEqual([['Ocean refs', 'lilac'], ['Plants', 'mint']]);
+    expect((await store.getBoard(b.id))?.name).toBe('Plants');
+  });
+  it('refuses duplicate names on create and rename', async () => {
+    const store = freshStore();
+    const a = await store.createBoard('Ocean', 'sky');
+    await store.createBoard('Plants', 'mint');
+    await expect(store.createBoard(' ocean ', 'peach')).rejects.toMatchObject({ reason: 'duplicate' });
+    await expect(store.updateBoard(a.id, { name: 'PLANTS' })).rejects.toMatchObject({ reason: 'duplicate' });
+  });
+  it('adds to and removes from boards; one image can be in several', async () => {
+    const store = freshStore();
+    const img = await store.add(sample('https://x.com/a.png'), new Blob([new Uint8Array([1])]));
+    const a = await store.createBoard('A', 'peach');
+    const b = await store.createBoard('B', 'mint');
+    await store.addToBoard([img.id], a.id);
+    await store.addToBoard([img.id], a.id);
+    await store.addToBoard([img.id], b.id);
+    expect((await store.findByUrl('https://x.com/a.png'))?.boardIds).toEqual([a.id, b.id]);
+    await store.removeFromBoard([img.id], a.id);
+    expect((await store.findByUrl('https://x.com/a.png'))?.boardIds).toEqual([b.id]);
+  });
+  it('deleting a board keeps its images and removes the board from them', async () => {
+    const store = freshStore();
+    const img = await store.add(sample('https://x.com/a.png'), new Blob([new Uint8Array([1])]));
+    const a = await store.createBoard('A', 'peach');
+    await store.addToBoard([img.id], a.id);
+    await store.deleteBoard(a.id);
+    expect(await store.listBoards()).toEqual([]);
+    const after = await store.list();
+    expect(after).toHaveLength(1);
+    expect(after[0]?.boardIds).toEqual([]);
+  });
+});
