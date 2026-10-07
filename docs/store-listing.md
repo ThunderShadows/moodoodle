@@ -30,7 +30,7 @@
 - Certify: not sold to third parties; not used or transferred for purposes unrelated to the single purpose;
   not used to determine creditworthiness or for lending.
 - Third-party transfer: only when the user presses **Find similar**, which opens Google Lens with that image's address.
-- Privacy policy URL: `https://moodoodle.in/privacy` (or the GitHub Pages URL of `docs/privacy.md`).
+- Privacy policy URL: `https://thundershadows.github.io/moodoodle/privacy.html` (GitHub Pages, from `site/`; regenerate with `python3 scripts/build-privacy-page.py` after editing `docs/privacy.md`).
 
 **Wording rules:** never "scrape", "download any image" or "grab everything". No Google or Canva logos.
 
