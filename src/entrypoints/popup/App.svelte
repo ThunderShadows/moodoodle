@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { browser, type Browser } from 'wxt/browser';
   import { openImageStore } from '@/lib/db';
+  import { isSameLocalDay } from '@/lib/dates';
   import type { KeepManyResult, Message, SavedImage } from '@/lib/types';
 
   type Tab = Browser.tabs.Tab;
@@ -16,11 +17,10 @@
 
   async function loadRecent() {
     const all = await store.list();
-    const today = new Date().toISOString().slice(0, 10);
-    todayCount = all.filter((i) => i.savedAt.startsWith(today)).length;
+    todayCount = all.filter((i) => isSameLocalDay(i.savedAt)).length;
     const next: { img: SavedImage; url: string }[] = [];
     for (const img of all.slice(0, 6)) {
-      const blob = await store.getBlob(img.id);
+      const blob = await store.getThumb(img.id);
       if (blob) next.push({ img, url: URL.createObjectURL(blob) });
     }
     recent.forEach((r) => URL.revokeObjectURL(r.url));

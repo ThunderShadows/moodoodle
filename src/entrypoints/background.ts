@@ -3,6 +3,7 @@ import { openImageStore } from '@/lib/db';
 import { keepImage, keepMany, type KeepDeps } from '@/lib/keep';
 import { fetchBlob, decodeInWorker } from '@/lib/decode';
 import { lensUrl } from '@/lib/urls';
+import { registerMenus } from '@/lib/menus';
 import type { Message } from '@/lib/types';
 
 export default defineBackground(() => {
@@ -28,8 +29,7 @@ export default defineBackground(() => {
   }
 
   browser.runtime.onInstalled.addListener(() => {
-    browser.contextMenus.create({ id: 'keep', title: 'Keep image', contexts: ['image'] });
-    browser.contextMenus.create({ id: 'lens', title: 'Find similar (Google Lens)', contexts: ['image'] });
+    registerMenus(browser.contextMenus);
   });
 
   browser.contextMenus.onClicked.addListener(async (info, tab) => {

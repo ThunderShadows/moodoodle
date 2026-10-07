@@ -62,3 +62,39 @@ describe('normalizeTags', () => {
     expect(normalizeTags([' A ', 'a', 'B', '  '])).toEqual(['a', 'b']);
   });
 });
+
+describe('thumbnails', () => {
+  it('returns the stored thumbnail, and falls back to the full image when there is none', async () => {
+    const store = freshStore();
+    const full = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' });
+    const thumb = new Blob([new Uint8Array([9])], { type: 'image/webp' });
+    const withThumb = await store.add(sample('https://x.com/a.png'), full, thumb);
+    const without = await store.add(sample('https://x.com/b.png'), full);
+    expect((await store.getThumb(withThumb.id))?.type).toBe('image/webp');
+    expect((await store.getThumb(without.id))?.type).toBe('image/png');
+  });
+  it('removes the thumbnail with the image', async () => {
+    const store = freshStore();
+    const img = await store.add(sample('https://x.com/a.png'), new Blob([new Uint8Array([1])]), new Blob([new Uint8Array([2])]));
+    await store.remove(img.id);
+    expect(await store.getThumb(img.id)).toBeUndefined();
+  });
+  it('opens a collection saved by v1.0 (no thumbnail store) without losing images', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`;
+    const { openDB } = await import('idb');
+    const v1 = await openDB(name, 1, {
+      upgrade(db) {
+        const images = db.createObjectStore('images', { keyPath: 'id' });
+        images.createIndex('byUrl', 'imageUrl', { unique: true });
+        images.createIndex('bySavedAt', 'savedAt');
+        db.createObjectStore('blobs');
+      },
+    });
+    await v1.put('images', { ...sample('https://x.com/old.png'), id: 'old', savedAt: '2026-10-06T10:00:00.000Z' });
+    await v1.put('blobs', { bytes: new Uint8Array([7]).buffer, type: 'image/png' }, 'old');
+    v1.close();
+    const store = openImageStore(name);
+    expect((await store.list()).map((i) => i.id)).toEqual(['old']);
+    expect((await store.getThumb('old'))?.type).toBe('image/png');
+  });
+});

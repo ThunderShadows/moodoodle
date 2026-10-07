@@ -17,8 +17,22 @@ export async function decodeInWorker(blob: Blob): Promise<Decoded> {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
     ctx.drawImage(bmp, 0, 0, w, h);
-    return { width: bmp.width, height: bmp.height, pixels: ctx.getImageData(0, 0, w, h).data };
+    const pixels = ctx.getImageData(0, 0, w, h).data;
+    return { width: bmp.width, height: bmp.height, pixels, thumb: await makeThumb(bmp) };
   } finally {
     bmp.close();
   }
+}
+
+const THUMB_SIDE = 480;
+
+/** Grid-sized WebP preview, so the gallery doesn't decode every full-size image. */
+async function makeThumb(bmp: ImageBitmap): Promise<Blob | undefined> {
+  const scale = Math.min(1, THUMB_SIDE / Math.max(bmp.width, bmp.height));
+  if (scale === 1) return undefined;
+  const canvas = new OffscreenCanvas(Math.round(bmp.width * scale), Math.round(bmp.height * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return undefined;
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  return canvas.convertToBlob({ type: 'image/webp', quality: 0.82 });
 }

@@ -7,6 +7,8 @@ export interface Decoded {
   width: number;
   height: number;
   pixels: Uint8ClampedArray;
+  /** Small preview for grids; optional so decoders that can't make one still work. */
+  thumb?: Blob;
 }
 
 export interface KeepDeps {
@@ -72,6 +74,7 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
         tags: [],
       },
       blob,
+      decoded.thumb,
     );
     return { status: 'kept', image };
   } catch (e) {

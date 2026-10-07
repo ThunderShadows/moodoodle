@@ -5,9 +5,11 @@
   import { filterImages } from '@/lib/search';
   import { buildZip } from '@/lib/zip';
   import { lensUrl } from '@/lib/urls';
+  import { createUrlCache } from '@/lib/urlcache';
   import { COLOR_FAMILIES, type ColorFamily, type SavedImage } from '@/lib/types';
 
   const store = openImageStore();
+  const thumbCache = createUrlCache((id) => store.getThumb(id));
   let images = $state<SavedImage[]>([]);
   const thumbs = $state<Record<string, string>>({});
   let query = $state(new URLSearchParams(location.search).get('q') ?? '');
@@ -26,8 +28,8 @@
     images = await store.list();
     for (const img of images) {
       if (thumbs[img.id]) continue;
-      const blob = await store.getBlob(img.id);
-      if (blob) thumbs[img.id] = URL.createObjectURL(blob);
+      const url = await thumbCache.get(img.id);
+      if (url) thumbs[img.id] = url;
     }
   }
 
@@ -74,8 +76,8 @@
     if (!confirm(`Remove ${selected.size} from your collection?`)) return;
     for (const id of [...selected]) {
       await store.remove(id);
-      const url = thumbs[id];
-      if (url) { URL.revokeObjectURL(url); delete thumbs[id]; }
+      thumbCache.drop(id);
+      delete thumbs[id];
     }
     selected.clear();
     await load();

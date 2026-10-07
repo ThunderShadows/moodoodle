@@ -37,6 +37,7 @@ const files = {
   '/sky.png': await png('#CFE6FB', '#2E6BA8', 300),
   '/icon.png': await png('#E3D9FB', '#5B3FB0', 32),
   '/blocked.png': await png('#FFF0B8', '#8A6400', 300),
+  '/big.png': await png('#F7B2D9', '#8E3A6B', 1200),
 };
 await maker.close();
 
@@ -208,6 +209,17 @@ await popup.waitForTimeout(600);
 check('popup shows recent thumbnails', (await popup.locator('.recent img').count()) === 1);
 check('popup on non-web page explains it', await popup.getByText("Can't read this page").isVisible());
 await popup.screenshot({ path: path.join(shots, '9-popup.png') });
+
+// Large images get a small WebP thumbnail for the grid; the full image is kept for export.
+const bigKeep = await popup.evaluate((url) => chrome.runtime.sendMessage({ type: 'keep', imageUrl: url, pageUrl: url, pageTitle: 'Big' }), `${base}/big.png`);
+const thumbInfo = await sw.evaluate(async (id) => {
+  const db = await new Promise((res) => { const r = indexedDB.open('moodoodle'); r.onsuccess = () => res(r.result); });
+  const get = (store) => new Promise((res) => { const r = db.transaction(store).objectStore(store).get(id); r.onsuccess = () => res(r.result); });
+  const [thumb, full] = [await get('thumbs'), await get('blobs')];
+  db.close();
+  return thumb && full ? { type: thumb.type, thumb: thumb.bytes.byteLength, full: full.bytes.byteLength } : null;
+}, bigKeep.image?.id);
+check('large image gets a smaller WebP thumbnail', thumbInfo?.type === 'image/webp' && thumbInfo.thumb < thumbInfo.full, JSON.stringify(thumbInfo));
 
 await ctx.close();
 server.close();

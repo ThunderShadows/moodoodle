@@ -105,3 +105,14 @@ describe('keepMany', () => {
     expect(res).toEqual({ kept: 2, skipped: 3 });
   });
 });
+
+describe('keepImage thumbnails', () => {
+  it('stores the thumbnail the decoder produced', async () => {
+    const thumb = new Blob([new Uint8Array([5])], { type: 'image/webp' });
+    const d = deps({ decode: vi.fn(async () => ({ width: 640, height: 480, pixels: peachPixels, thumb })) });
+    const r = await keepImage(d, input);
+    expect(r.status).toBe('kept');
+    if (r.status !== 'kept') return;
+    expect((await d.store.getThumb(r.image.id))?.type).toBe('image/webp');
+  });
+});
