@@ -32,3 +32,13 @@ describe('filterImages', () => {
     expect(filterImages(all, { query: '  cat   cute ', family: 'all' }).map((i) => i.id)).toEqual(['2']);
   });
 });
+
+describe('filterImages by board', () => {
+  const boarded = [img('1', { boardIds: [] }), img('2', { boardIds: ['ocean'] }), img('3', { boardIds: ['ocean', 'plants'] })];
+  it('filters to one board, to unsorted, or keeps all', () => {
+    expect(filterImages(boarded, { query: '', family: 'all', board: 'ocean' }).map((i) => i.id)).toEqual(['2', '3']);
+    expect(filterImages(boarded, { query: '', family: 'all', board: 'unsorted' }).map((i) => i.id)).toEqual(['1']);
+    expect(filterImages(boarded, { query: '', family: 'all', board: 'all' })).toHaveLength(3);
+    expect(filterImages(boarded, { query: '', family: 'all' })).toHaveLength(3);
+  });
+});
