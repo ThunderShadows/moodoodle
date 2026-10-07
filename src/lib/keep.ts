@@ -1,7 +1,7 @@
 import type { ImageStore } from './db';
 import { extractPalette, dominantFamily } from './color';
 import { isKeepableUrl } from './urls';
-import { MAX_BYTES, emptyCredit, type KeepErrorReason, type KeepManyResult, type KeepResult } from './types';
+import { MAX_BYTES, emptyCredit, type KeepErrorReason, type KeepManyResult, type KeepResult, type SavedImage } from './types';
 
 export interface Decoded {
   width: number;
@@ -22,6 +22,8 @@ export interface KeepInput {
   imageUrl: string;
   pageUrl: string;
   pageTitle: string;
+  /** The "keeping into" board, if any. */
+  board?: { id: string; name: string };
 }
 
 export function siteOf(url: string): string {
@@ -34,11 +36,19 @@ export function siteOf(url: string): string {
 
 const fail = (reason: KeepErrorReason): KeepResult => ({ status: 'error', reason });
 
+/** An already-kept image joins the keeping-into board rather than being refused. */
+async function duplicate(deps: KeepDeps, image: SavedImage, board?: KeepInput['board']): Promise<KeepResult> {
+  if (!board) return { status: 'duplicate', image };
+  if (image.boardIds.includes(board.id)) return { status: 'duplicate', image, boardName: board.name, addedToBoard: false };
+  await deps.store.addToBoard([image.id], board.id);
+  return { status: 'duplicate', image: { ...image, boardIds: [...image.boardIds, board.id] }, boardName: board.name, addedToBoard: true };
+}
+
 export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepResult> {
   if (!isKeepableUrl(input.imageUrl)) return fail('unsupported-url');
 
   const existing = await deps.store.findByUrl(input.imageUrl);
-  if (existing) return { status: 'duplicate', image: existing };
+  if (existing) return duplicate(deps, existing, input.board);
 
   let blob: Blob;
   try {
@@ -72,17 +82,17 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
         palette,
         colorFamily: dominantFamily(palette),
         tags: [],
-        boardIds: [],
+        boardIds: input.board ? [input.board.id] : [],
         credit: emptyCredit(),
       },
       blob,
       decoded.thumb,
     );
-    return { status: 'kept', image };
+    return { status: 'kept', image, boardName: input.board?.name };
   } catch (e) {
     // Another keep of the same URL won the race to the unique index.
     const raced = await deps.store.findByUrl(input.imageUrl);
-    if (raced) return { status: 'duplicate', image: raced };
+    if (raced) return duplicate(deps, raced, input.board);
     throw e;
   }
 }
@@ -90,12 +100,12 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
 /** Keeps each URL in turn; any failure, including an unexpected storage error, counts as skipped. */
 export async function keepMany(
   deps: KeepDeps,
-  input: { imageUrls: string[]; pageUrl: string; pageTitle: string },
+  input: { imageUrls: string[]; pageUrl: string; pageTitle: string; board?: KeepInput['board'] },
 ): Promise<KeepManyResult> {
   const out: KeepManyResult = { kept: 0, skipped: 0 };
   for (const imageUrl of input.imageUrls) {
     try {
-      const r = await keepImage(deps, { imageUrl, pageUrl: input.pageUrl, pageTitle: input.pageTitle });
+      const r = await keepImage(deps, { imageUrl, pageUrl: input.pageUrl, pageTitle: input.pageTitle, board: input.board });
       if (r.status === 'kept') out.kept++;
       else out.skipped++;
     } catch {

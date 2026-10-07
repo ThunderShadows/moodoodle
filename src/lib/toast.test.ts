@@ -17,3 +17,11 @@ describe('toastText', () => {
     expect(toastText({ status: 'error', reason: 'decode-failed' })).toBe("This image format isn't supported yet");
   });
 });
+
+describe('toastText with boards', () => {
+  it('names the board', () => {
+    expect(toastText({ status: 'kept', image, boardName: 'Ocean' })).toBe('Kept to Ocean · from dribbble.com');
+    expect(toastText({ status: 'duplicate', image, boardName: 'Ocean', addedToBoard: true })).toBe('Already kept, added to Ocean');
+    expect(toastText({ status: 'duplicate', image, boardName: 'Ocean', addedToBoard: false })).toBe('Already in Ocean');
+  });
+});

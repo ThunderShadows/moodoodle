@@ -116,3 +116,28 @@ describe('keepImage thumbnails', () => {
     expect((await d.store.getThumb(r.image.id))?.type).toBe('image/webp');
   });
 });
+
+describe('keeping into a board', () => {
+  it('puts a new keep into the board and reports its name', async () => {
+    const d = deps();
+    const board = await d.store.createBoard('Ocean', 'sky');
+    const r = await keepImage(d, { ...input, board });
+    expect(r).toMatchObject({ status: 'kept', boardName: 'Ocean' });
+    expect(r.status === 'kept' && r.image.boardIds).toEqual([board.id]);
+  });
+  it('adds an already-kept image to the board instead of failing', async () => {
+    const d = deps();
+    await keepImage(d, input);
+    const board = await d.store.createBoard('Ocean', 'sky');
+    const r = await keepImage(d, { ...input, board });
+    expect(r).toMatchObject({ status: 'duplicate', boardName: 'Ocean', addedToBoard: true });
+    expect((await d.store.findByUrl(input.imageUrl))?.boardIds).toEqual([board.id]);
+    expect(await keepImage(d, { ...input, board })).toMatchObject({ status: 'duplicate', addedToBoard: false });
+  });
+  it('keepMany files every new keep into the board', async () => {
+    const d = deps();
+    const board = await d.store.createBoard('Ocean', 'sky');
+    await keepMany(d, { imageUrls: ['https://a.com/1.png', 'https://a.com/2.png'], pageUrl: 'https://a.com', pageTitle: 'A', board });
+    expect((await d.store.list()).every((i) => i.boardIds[0] === board.id)).toBe(true);
+  });
+});

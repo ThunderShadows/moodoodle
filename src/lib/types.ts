@@ -65,8 +65,8 @@ export type KeepErrorReason =
   | 'unsupported-url' | 'fetch-failed' | 'not-an-image' | 'too-big' | 'decode-failed';
 
 export type KeepResult =
-  | { status: 'kept'; image: SavedImage }
-  | { status: 'duplicate'; image: SavedImage }
+  | { status: 'kept'; image: SavedImage; boardName?: string }
+  | { status: 'duplicate'; image: SavedImage; boardName?: string; addedToBoard?: boolean }
   | { status: 'error'; reason: KeepErrorReason };
 
 export interface KeepManyResult {

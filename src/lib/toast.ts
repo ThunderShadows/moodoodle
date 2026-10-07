@@ -10,9 +10,14 @@ const ERRORS: Record<KeepErrorReason, string> = {
 
 export function toastText(result: KeepResult): string {
   if (result.status === 'kept') {
+    if (result.boardName) return `Kept to ${result.boardName} · from ${result.image.site}`;
     const family = result.image.colorFamily;
     return `Kept! ${family[0]!.toUpperCase()}${family.slice(1)} · from ${result.image.site}`;
   }
-  if (result.status === 'duplicate') return 'Already in your collection';
+  if (result.status === 'duplicate') {
+    if (result.addedToBoard) return `Already kept, added to ${result.boardName}`;
+    if (result.boardName) return `Already in ${result.boardName}`;
+    return 'Already in your collection';
+  }
   return ERRORS[result.reason];
 }

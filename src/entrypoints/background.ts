@@ -4,6 +4,7 @@ import { keepImage, keepMany, type KeepDeps } from '@/lib/keep';
 import { fetchBlob, decodeInWorker } from '@/lib/decode';
 import { lensUrl } from '@/lib/urls';
 import { registerMenus } from '@/lib/menus';
+import { resolveKeepingInto } from '@/lib/settings';
 import type { Message } from '@/lib/types';
 
 export default defineBackground(() => {
@@ -18,9 +19,9 @@ export default defineBackground(() => {
   async function handle(msg: Message): Promise<unknown> {
     switch (msg.type) {
       case 'keep':
-        return keepImage(deps, msg);
+        return keepImage(deps, { ...msg, board: await resolveKeepingInto(deps.store) });
       case 'keep-many':
-        return keepMany(deps, msg);
+        return keepMany(deps, { ...msg, board: await resolveKeepingInto(deps.store) });
       case 'lens':
         return openLens(msg.imageUrl);
       default:
@@ -43,6 +44,7 @@ export default defineBackground(() => {
       imageUrl: info.srcUrl,
       pageUrl: tab?.url ?? info.pageUrl ?? '',
       pageTitle: tab?.title ?? '',
+      board: await resolveKeepingInto(deps.store),
     });
     if (tab?.id !== undefined) {
       const toast: Message = { type: 'toast', result };
