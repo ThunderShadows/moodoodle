@@ -1,7 +1,7 @@
 # moodoodle v1.2: Boards + Save with credit
 
 **Date:** 2026-10-07
-**Status:** draft for review
+**Status:** reviewed 2026-10-07 (answers in §11); find-similar data source pending
 **Builds on:** `docs/spec.md` (v1), `docs/research/2026-10-07-novelty-policy-review.md`
 
 ## 1. Why
@@ -53,12 +53,23 @@ No competitor we found does 2 or 3. That's the differentiator against Moodsnap.
   delete board. Deleting asks for confirmation, keeps the images, and clears "keeping into" if it pointed there.
 - Removing an image from the library removes it from every board.
 
-### 3.2 Free vs paid (proposed, enforced later)
+### 3.2 Free vs paid (agreed; enforced when payments ship)
 
-| | Free | Paid |
+| | Free | Plus |
 |---|---|---|
-| Boards | 3 | Unlimited |
+| Boards | **3** | Unlimited |
+| Images per board | **Unlimited** | Unlimited |
+| Images in the library | Unlimited | Unlimited |
 | Credits, badges, CREDITS.md | ✅ | ✅ |
+
+There's no image cap anywhere: images live on the user's own disk (`unlimitedStorage`), so a cap would
+cost us nothing to lift and would only feel petty. The free tier is the number of boards.
+
+**How the free tier is shown** (mockup: "Boards sidebar: free tier at its limit"):
+- Under the board list, a 3-dot meter and "2 of 3 free boards". Always visible, never a popup.
+- At 3 of 3, "+ New board" is replaced by a small card: *"Need another board? Free includes 3 boards with
+  as many images as you like. Plus unlocks unlimited boards."* with **See Plus** and **Tidy a board**.
+- Nothing is ever locked or hidden: existing boards, keeping, credits and exports keep working.
 
 Credits stay free on purpose: they're the trust story, and charging for attribution would undercut it.
 
@@ -157,14 +168,14 @@ the same shape as generic extraction, are tested only against fixtures, and thei
 - **NoAI detection:** `<meta name="robots" content="…noai…|…noimageai…">` (any case), the same in
   `X-Robots-Tag`-style meta variants, and an XMP `plus:DataMining` value prohibiting AI/ML use. Sets `noAI: true`.
 - **Bulk keep is off** when the page has a NoAI opt-out **or** is on an artist-platform list
-  (initial: artstation.com, cara.app, deviantart.com). The popup's Keep-all card says:
+  (artstation.com, cara.app, deviantart.com, behance.net, dribbble.com). The popup's Keep-all card says:
   *"Artists here asked not to be collected in bulk. Keep the ones you love one at a time."* The worker also
   refuses `keep-many` for those pages (defense in depth).
 - **Single Keep stays allowed everywhere**: saving a reference for yourself is the core use. The credit is
   recorded and the No AI chip shown.
 - **Future AI features** (auto-tags, similar-in-collection) will **skip `noAI` images**. Recorded here so
   it isn't forgotten.
-- **Find similar** stays available: it's a search the user starts, not AI training.
+- **Find similar** stays available for every image, NoAI included: it's a search the user starts, not AI training.
 
 ## 7. Data model
 
@@ -242,13 +253,36 @@ interface Credit {
   Regenerate `site/privacy.html`.
 - Listing: lead with credits ("keeps the artist's name with every image") and the respect-artists promise.
 
-## 11. Open questions (yours)
+## 11. Find similar: orbit overlay (new)
 
-1. **Free board limit:** 3 boards free is proposed. OK, or another number?
-2. **Artist-platform list** for no bulk keep: start with ArtStation, Cara and DeviantArt. Add Behance and Dribbble?
-3. **Should Find similar also be hidden for NoAI images?** Proposed: no (it's a search, not training).
+Instead of opening a Google Lens tab, **Find similar** opens an overlay on the current page (or in the gallery),
+designed in the mockup canvas ("Find similar: orbit overlay"):
 
-## 12. Delivery order
+- Page dims; the chosen image sits in a large circle at the center.
+- **Inner ring:** up to 6 look-alikes **from your saves**, each linked to the center by a thin line, slowly orbiting.
+- **Outer ring:** up to 8 look-alikes **from around the web**, orbiting the other way, more slowly.
+- Hover anywhere on the wheel pauses it; clicking an orb shows a card below: title, creator, reuse badge,
+  and **Show in gallery** (your saves) or **Keep** / **Open ↗** (web results).
+- Close with × or Esc. "Open in Google Lens ↗" stays as a link for anyone who wants Google's full results.
+- Respects reduced-motion settings (no rotation; orbs sit still).
+
+**Where results come from**
+
+| Ring | Source | Cost | Privacy |
+|---|---|---|---|
+| Inner: your saves | On-device image embeddings (Transformers.js with a CLIP-style model) computed when an image is kept; nearest neighbours by cosine similarity | Free | Nothing leaves the device |
+| Outer: the web | Needs a visual-search API (e.g. Google Cloud Vision web detection, ~$3.50 per 1,000 searches; SerpApi Google Lens, from $25 per 1,000). Google Lens itself has no public API, and scraping it would break Google's terms and the store's rules | Paid per search; the key must sit behind a small server we run | The image URL goes to our server and the API provider; needs a privacy-policy update and the CWS disclosure |
+
+**Decision pending (yours):** whether the outer ring ships, and on which tier. Whatever we pick,
+the inner ring ships in v1.2 and the overlay design doesn't change.
+
+## 12. Answers to review questions (2026-10-07)
+
+1. Free board limit: **3**, unlimited images per board (§3.2).
+2. No-bulk-keep list: **ArtStation, Cara, DeviantArt, Behance, Dribbble** (§6).
+3. Find similar stays available for NoAI images, now as the orbit overlay (§11).
+
+## 13. Delivery order
 
 1. Data model + migration + boards store (no UI)
 2. Boards UI: sidebar, add/remove, board menu, popup "keeping into"
@@ -256,3 +290,4 @@ interface Credit {
 4. Credit UI: tile line + badge, details panel with editing, `CREDITS.md`
 5. Respect-artists rules (NoAI, platform list, worker guard)
 6. Site fixtures + any proven-necessary adapters; e2e; privacy/listing updates
+7. Find similar orbit overlay + on-device embeddings for the inner ring (outer ring per the §11 decision)
