@@ -3,6 +3,7 @@ import { extractPalette, dominantFamily } from './color';
 import { isKeepableUrl } from './urls';
 import { mergeCredit, parseRobots } from './credit';
 import { readXmp } from './xmp';
+import { bulkKeepBlocked } from './respect';
 import { MAX_BYTES, type KeepErrorReason, type KeepManyResult, type KeepResult, type PageCredit, type SavedImage } from './types';
 
 export interface Decoded {
@@ -109,8 +110,17 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
 /** Keeps each URL in turn; any failure, including an unexpected storage error, counts as skipped. */
 export async function keepMany(
   deps: KeepDeps,
-  input: { imageUrls: string[]; pageUrl: string; pageTitle: string; board?: KeepInput['board']; pageCredits?: Record<string, PageCredit> },
+  input: {
+    imageUrls: string[];
+    pageUrl: string;
+    pageTitle: string;
+    board?: KeepInput['board'];
+    pageCredits?: Record<string, PageCredit>;
+    pageNoAI?: boolean;
+  },
 ): Promise<KeepManyResult> {
+  // Enforced here as well as in the popup, so no caller can bulk-collect from artist pages.
+  if (bulkKeepBlocked(input.pageUrl, !!input.pageNoAI)) return { kept: 0, skipped: input.imageUrls.length, blocked: true };
   const out: KeepManyResult = { kept: 0, skipped: 0 };
   for (const imageUrl of input.imageUrls) {
     try {

@@ -4,6 +4,7 @@
   import { openImageStore } from '@/lib/db';
   import { isSameLocalDay } from '@/lib/dates';
   import { resolveKeepingInto, setKeepingInto } from '@/lib/settings';
+  import { BULK_BLOCKED_MESSAGE, bulkKeepBlocked } from '@/lib/respect';
   import type { Board, CollectResult, KeepManyResult, Message, PageCredit, SavedImage } from '@/lib/types';
 
   type Tab = Browser.tabs.Tab;
@@ -12,6 +13,7 @@
   let found = $state<string[] | null>(null);
   let pageCredits: Record<string, PageCredit> = {};
   let pageNoAI = $state(false);
+  let bulkBlocked = $state(false);
   let status = $state('');
   let query = $state('');
   let busy = $state(false);
@@ -48,6 +50,7 @@
       found = res.urls;
       pageCredits = res.credits;
       pageNoAI = res.noAI;
+      bulkBlocked = bulkKeepBlocked(tab.url ?? '', pageNoAI);
     } catch {
       found = null;
       status = "Can't read this page. Try reloading it.";
@@ -57,7 +60,7 @@
   async function keepAll() {
     if (!found?.length || !tab) return;
     busy = true;
-    const msg: Message = { type: 'keep-many', imageUrls: found, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '', pageCredits };
+    const msg: Message = { type: 'keep-many', imageUrls: found, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '', pageCredits, pageNoAI };
     const res = (await browser.runtime.sendMessage(msg)) as KeepManyResult;
     status = `Kept ${res.kept}${res.skipped ? ` · ${res.skipped} skipped` : ''}`;
     busy = false;
@@ -95,7 +98,11 @@
       {#each recent as r (r.img.id)}<img src={r.url} alt={r.img.pageTitle} />{/each}
     </div>
   {/if}
-  {#if found}
+  {#if found && bulkBlocked}
+    <div class="card blocked">
+      <span class="muted">{BULK_BLOCKED_MESSAGE}</span>
+    </div>
+  {:else if found}
     <div class="card">
       <div class="col">
         <span class="strong">Keep all on this page</span>
@@ -128,5 +135,6 @@
   .dark { height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--ink); color: #FFFFFF; font-weight: 600; cursor: pointer; }
   .dark:disabled { opacity: .6; }
   .status { margin: 0; font-size: 14px; color: var(--ink); }
+  .card.blocked { display: block; line-height: 1.45; }
   .open { height: 48px; border: 0; border-radius: 999px; background: var(--accent); color: var(--ink); font-weight: 600; cursor: pointer; }
 </style>

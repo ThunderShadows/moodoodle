@@ -72,11 +72,13 @@ export type KeepResult =
 export interface KeepManyResult {
   kept: number;
   skipped: number;
+  /** Bulk keep refused on an artist platform or NoAI page. */
+  blocked?: boolean;
 }
 
 export type Message =
   | { type: 'keep'; imageUrl: string; pageUrl: string; pageTitle: string; pageCredit?: PageCredit }
-  | { type: 'keep-many'; imageUrls: string[]; pageUrl: string; pageTitle: string; pageCredits?: Record<string, PageCredit> }
+  | { type: 'keep-many'; imageUrls: string[]; pageUrl: string; pageTitle: string; pageCredits?: Record<string, PageCredit>; pageNoAI?: boolean }
   | { type: 'credit-for'; imageUrl: string }
   | { type: 'lens'; imageUrl: string }
   | { type: 'collect-images' }
