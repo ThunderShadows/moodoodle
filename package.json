@@ -14,7 +14,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "postinstall": "wxt prepare",
     "test": "vitest run",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "shots": "node e2e/store-shots.mjs"
   },
   "devDependencies": {
     "@tsconfig/svelte": "^5.0.8",
