@@ -9,7 +9,7 @@ const peachPixels = new Uint8ClampedArray([255, 216, 194, 255, 255, 216, 194, 25
 function deps(over: Partial<KeepDeps> = {}): KeepDeps {
   return {
     store: openImageStore(`keep-${crypto.randomUUID()}`),
-    fetchBlob: vi.fn(async () => PNG()),
+    fetchImage: vi.fn(async () => ({ blob: PNG() })),
     decode: vi.fn(async () => ({ width: 640, height: 480, pixels: peachPixels })),
     ...over,
   };
@@ -38,7 +38,7 @@ describe('keepImage', () => {
   it('rejects unsupported URLs without fetching', async () => {
     const d = deps();
     expect(await keepImage(d, { ...input, imageUrl: 'blob:https://site.com/1' })).toEqual({ status: 'error', reason: 'unsupported-url' });
-    expect(d.fetchBlob).not.toHaveBeenCalled();
+    expect(d.fetchImage).not.toHaveBeenCalled();
   });
 
   it('returns duplicate without fetching again', async () => {
@@ -46,7 +46,7 @@ describe('keepImage', () => {
     await keepImage(d, input);
     const r = await keepImage(d, input);
     expect(r.status).toBe('duplicate');
-    expect(d.fetchBlob).toHaveBeenCalledTimes(1);
+    expect(d.fetchImage).toHaveBeenCalledTimes(1);
   });
 
   it('keeps only one copy when two keeps race', async () => {
@@ -57,13 +57,13 @@ describe('keepImage', () => {
   });
 
   it('reports a blocked download and saves nothing', async () => {
-    const d = deps({ fetchBlob: vi.fn(async () => { throw new Error('403'); }) });
+    const d = deps({ fetchImage: vi.fn(async () => { throw new Error('403'); }) });
     expect(await keepImage(d, input)).toEqual({ status: 'error', reason: 'fetch-failed' });
     expect(await d.store.list()).toEqual([]);
   });
 
   it('rejects non-image responses', async () => {
-    const d = deps({ fetchBlob: vi.fn(async () => new Blob(['<html>'], { type: 'text/html' })) });
+    const d = deps({ fetchImage: vi.fn(async () => ({ blob: new Blob(['<html>'], { type: 'text/html' }) })) });
     expect(await keepImage(d, input)).toEqual({ status: 'error', reason: 'not-an-image' });
   });
 
@@ -139,5 +139,40 @@ describe('keeping into a board', () => {
     const board = await d.store.createBoard('Ocean', 'sky');
     await keepMany(d, { imageUrls: ['https://a.com/1.png', 'https://a.com/2.png'], pageUrl: 'https://a.com', pageTitle: 'A', board });
     expect((await d.store.list()).every((i) => i.boardIds[0] === board.id)).toBe(true);
+  });
+});
+
+describe('keeping with credit', () => {
+  const xmpPng = () => new Blob([
+    new Uint8Array([137, 80, 78, 71]),
+    '<x:xmpmeta><rdf:RDF><rdf:Description><dc:rights><rdf:Alt><rdf:li>© Jane</rdf:li></rdf:Alt></dc:rights>'
+      + '<cc:license rdf:resource="https://creativecommons.org/licenses/by-nc/4.0/"/></rdf:Description></rdf:RDF></x:xmpmeta>',
+  ], { type: 'image/png' });
+
+  it('stores credit merged from the page and the file', async () => {
+    const d = deps({ fetchImage: vi.fn(async () => ({ blob: xmpPng() })) });
+    const r = await keepImage(d, { ...input, pageCredit: { jsonLd: { creator: 'Jane Doe', creatorUrl: 'https://x.com/jane' }, noAI: false } });
+    expect(r.status === 'kept' && r.image.credit).toMatchObject({
+      creator: 'Jane Doe', creatorUrl: 'https://x.com/jane', copyrightNotice: '© Jane',
+      license: { kind: 'cc', code: 'by-nc' }, confidence: 'stated',
+      fieldSources: { creator: 'json-ld', license: 'xmp' },
+    });
+    expect((await d.store.findByUrl(input.imageUrl))?.credit.creator).toBe('Jane Doe');
+  });
+
+  it('marks the image NoAI when the image response says so', async () => {
+    const d = deps({ fetchImage: vi.fn(async () => ({ blob: PNG(), robots: 'noindex, noai' })) });
+    const r = await keepImage(d, input);
+    expect(r.status === 'kept' && r.image.credit.noAI).toBe(true);
+  });
+
+  it('keepMany uses each image\'s own page credit', async () => {
+    const d = deps();
+    await keepMany(d, {
+      imageUrls: ['https://a.com/1.png', 'https://a.com/2.png'], pageUrl: 'https://a.com', pageTitle: 'A',
+      pageCredits: { 'https://a.com/2.png': { jsonLd: { creator: 'Two' }, noAI: false } },
+    });
+    const byUrl = Object.fromEntries((await d.store.list()).map((i) => [i.imageUrl, i.credit.creator]));
+    expect(byUrl).toEqual({ 'https://a.com/1.png': undefined, 'https://a.com/2.png': 'Two' });
   });
 });

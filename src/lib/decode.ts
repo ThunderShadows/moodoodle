@@ -1,9 +1,9 @@
 import type { Decoded } from './keep';
 
-export async function fetchBlob(url: string): Promise<Blob> {
+export async function fetchImage(url: string): Promise<{ blob: Blob; robots?: string }> {
   const res = await fetch(url, { credentials: 'omit' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.blob();
+  return { blob: await res.blob(), robots: res.headers.get('x-robots-tag') ?? undefined };
 }
 
 // Worker-only (OffscreenCanvas); verified manually in Chrome, not in Node tests.

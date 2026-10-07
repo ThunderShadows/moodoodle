@@ -90,7 +90,7 @@ await gallery.setViewportSize({ width: 1180, height: 700 });
 await gallery.goto(`chrome-extension://${extId}/gallery.html`);
 const webTabId = await gallery.evaluate(async (u) => {
   const [tab] = await chrome.tabs.query({ url: u });
-  const urls = await chrome.tabs.sendMessage(tab.id, { type: 'collect-images' });
+  const { urls } = await chrome.tabs.sendMessage(tab.id, { type: 'collect-images' });
   await chrome.runtime.sendMessage({ type: 'keep-many', imageUrls: urls, pageUrl: tab.url, pageTitle: tab.title });
   return tab.id;
 }, `${base}/sketchbook`);

@@ -1,7 +1,9 @@
 import type { ImageStore } from './db';
 import { extractPalette, dominantFamily } from './color';
 import { isKeepableUrl } from './urls';
-import { MAX_BYTES, emptyCredit, type KeepErrorReason, type KeepManyResult, type KeepResult, type SavedImage } from './types';
+import { mergeCredit, parseRobots } from './credit';
+import { readXmp } from './xmp';
+import { MAX_BYTES, type KeepErrorReason, type KeepManyResult, type KeepResult, type PageCredit, type SavedImage } from './types';
 
 export interface Decoded {
   width: number;
@@ -13,7 +15,8 @@ export interface Decoded {
 
 export interface KeepDeps {
   store: ImageStore;
-  fetchBlob(url: string): Promise<Blob>;
+  /** Downloads the image; `robots` is its X-Robots-Tag response header, if any. */
+  fetchImage(url: string): Promise<{ blob: Blob; robots?: string }>;
   decode(blob: Blob): Promise<Decoded>;
   maxBytes?: number;
 }
@@ -24,6 +27,8 @@ export interface KeepInput {
   pageTitle: string;
   /** The "keeping into" board, if any. */
   board?: { id: string; name: string };
+  /** Credit facts the page states about this image (read by the content script). */
+  pageCredit?: PageCredit;
 }
 
 export function siteOf(url: string): string {
@@ -51,8 +56,9 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
   if (existing) return duplicate(deps, existing, input.board);
 
   let blob: Blob;
+  let robots: string | undefined;
   try {
-    blob = await deps.fetchBlob(input.imageUrl);
+    ({ blob, robots } = await deps.fetchImage(input.imageUrl));
   } catch {
     return fail('fetch-failed');
   }
@@ -67,6 +73,9 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
   }
 
   const palette = extractPalette(decoded.pixels);
+  // XMP sits near the start of the file; readXmp scans at most 256 KB.
+  const head = new Uint8Array(await blob.slice(0, 256 * 1024).arrayBuffer());
+  const credit = mergeCredit({ page: input.pageCredit, xmp: readXmp(head), headerNoAI: parseRobots(robots) });
   const site = siteOf(input.pageUrl);
   try {
     const image = await deps.store.add(
@@ -83,7 +92,7 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
         colorFamily: dominantFamily(palette),
         tags: [],
         boardIds: input.board ? [input.board.id] : [],
-        credit: emptyCredit(),
+        credit,
       },
       blob,
       decoded.thumb,
@@ -100,12 +109,14 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
 /** Keeps each URL in turn; any failure, including an unexpected storage error, counts as skipped. */
 export async function keepMany(
   deps: KeepDeps,
-  input: { imageUrls: string[]; pageUrl: string; pageTitle: string; board?: KeepInput['board'] },
+  input: { imageUrls: string[]; pageUrl: string; pageTitle: string; board?: KeepInput['board']; pageCredits?: Record<string, PageCredit> },
 ): Promise<KeepManyResult> {
   const out: KeepManyResult = { kept: 0, skipped: 0 };
   for (const imageUrl of input.imageUrls) {
     try {
-      const r = await keepImage(deps, { imageUrl, pageUrl: input.pageUrl, pageTitle: input.pageTitle, board: input.board });
+      const r = await keepImage(deps, {
+        imageUrl, pageUrl: input.pageUrl, pageTitle: input.pageTitle, board: input.board, pageCredit: input.pageCredits?.[imageUrl],
+      });
       if (r.status === 'kept') out.kept++;
       else out.skipped++;
     } catch {

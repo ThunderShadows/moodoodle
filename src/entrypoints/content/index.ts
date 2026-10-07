@@ -1,8 +1,9 @@
 import { browser } from 'wxt/browser';
 import { isBigEnough, pickBestSrc, collectImageUrls } from '@/lib/pick';
 import { toastText } from '@/lib/toast';
+import { extractPageCredit } from '@/lib/pagecredit';
 import { lensUrl } from '@/lib/urls';
-import type { KeepResult, Message } from '@/lib/types';
+import type { CollectResult, KeepResult, Message } from '@/lib/types';
 import { css } from './style';
 
 export default defineContentScript({
@@ -61,7 +62,10 @@ export default defineContentScript({
       if (!src) return;
       keepBtn.disabled = true;
       try {
-        const msg: Message = { type: 'keep', imageUrl: src, pageUrl: location.href, pageTitle: document.title };
+        const msg: Message = {
+          type: 'keep', imageUrl: src, pageUrl: location.href, pageTitle: document.title,
+          pageCredit: extractPageCredit(document, src),
+        };
         const result = (await browser.runtime.sendMessage(msg)) as KeepResult;
         showToast(toastText(result));
       } catch {
@@ -85,7 +89,13 @@ export default defineContentScript({
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as Message;
       if (msg.type === 'toast') showToast(toastText(msg.result));
-      if (msg.type === 'collect-images') sendResponse(collectImageUrls(document));
+      if (msg.type === 'credit-for') sendResponse(extractPageCredit(document, msg.imageUrl));
+      if (msg.type === 'collect-images') {
+        const urls = collectImageUrls(document);
+        const credits = Object.fromEntries(urls.map((u) => [u, extractPageCredit(document, u)]));
+        const result: CollectResult = { urls, credits, noAI: extractPageCredit(document, location.href).noAI };
+        sendResponse(result);
+      }
       return false;
     });
   },

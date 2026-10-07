@@ -75,8 +75,9 @@ export interface KeepManyResult {
 }
 
 export type Message =
-  | { type: 'keep'; imageUrl: string; pageUrl: string; pageTitle: string }
-  | { type: 'keep-many'; imageUrls: string[]; pageUrl: string; pageTitle: string }
+  | { type: 'keep'; imageUrl: string; pageUrl: string; pageTitle: string; pageCredit?: PageCredit }
+  | { type: 'keep-many'; imageUrls: string[]; pageUrl: string; pageTitle: string; pageCredits?: Record<string, PageCredit> }
+  | { type: 'credit-for'; imageUrl: string }
   | { type: 'lens'; imageUrl: string }
   | { type: 'collect-images' }
   | { type: 'toast'; result: KeepResult };
@@ -103,5 +104,13 @@ export interface XmpCredit {
   rights?: string;
   webStatement?: string;
   license?: string;
+  noAI: boolean;
+}
+
+/** The content script's answer to 'collect-images'. */
+export interface CollectResult {
+  urls: string[];
+  credits: Record<string, PageCredit>;
+  /** The page opts out of AI use (NoAI meta). */
   noAI: boolean;
 }

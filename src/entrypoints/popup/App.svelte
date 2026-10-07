@@ -4,12 +4,14 @@
   import { openImageStore } from '@/lib/db';
   import { isSameLocalDay } from '@/lib/dates';
   import { resolveKeepingInto, setKeepingInto } from '@/lib/settings';
-  import type { Board, KeepManyResult, Message, SavedImage } from '@/lib/types';
+  import type { Board, CollectResult, KeepManyResult, Message, PageCredit, SavedImage } from '@/lib/types';
 
   type Tab = Browser.tabs.Tab;
   const store = openImageStore();
   let recent = $state<{ img: SavedImage; url: string }[]>([]);
   let found = $state<string[] | null>(null);
+  let pageCredits: Record<string, PageCredit> = {};
+  let pageNoAI = $state(false);
   let status = $state('');
   let query = $state('');
   let busy = $state(false);
@@ -42,7 +44,10 @@
     if (tab?.id === undefined) return;
     try {
       const msg: Message = { type: 'collect-images' };
-      found = (await browser.tabs.sendMessage(tab.id, msg)) as string[];
+      const res = (await browser.tabs.sendMessage(tab.id, msg)) as CollectResult;
+      found = res.urls;
+      pageCredits = res.credits;
+      pageNoAI = res.noAI;
     } catch {
       found = null;
       status = "Can't read this page. Try reloading it.";
@@ -52,7 +57,7 @@
   async function keepAll() {
     if (!found?.length || !tab) return;
     busy = true;
-    const msg: Message = { type: 'keep-many', imageUrls: found, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '' };
+    const msg: Message = { type: 'keep-many', imageUrls: found, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '', pageCredits };
     const res = (await browser.runtime.sendMessage(msg)) as KeepManyResult;
     status = `Kept ${res.kept}${res.skipped ? ` · ${res.skipped} skipped` : ''}`;
     busy = false;

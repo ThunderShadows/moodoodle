@@ -166,3 +166,12 @@ describe('boards in the store', () => {
     expect(after[0]?.boardIds).toEqual([]);
   });
 });
+
+describe('setCredit', () => {
+  it('saves an edited credit', async () => {
+    const store = freshStore();
+    const img = await store.add(sample('https://x.com/a.png'), new Blob([new Uint8Array([1])]));
+    await store.setCredit(img.id, { ...emptyCredit(), creator: 'Fixed', fieldSources: { creator: 'user' }, confidence: 'stated' });
+    expect((await store.findByUrl('https://x.com/a.png'))?.credit).toMatchObject({ creator: 'Fixed', fieldSources: { creator: 'user' } });
+  });
+});

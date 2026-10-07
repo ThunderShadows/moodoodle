@@ -1,14 +1,14 @@
 import { browser } from 'wxt/browser';
 import { openImageStore } from '@/lib/db';
 import { keepImage, keepMany, type KeepDeps } from '@/lib/keep';
-import { fetchBlob, decodeInWorker } from '@/lib/decode';
+import { fetchImage, decodeInWorker } from '@/lib/decode';
 import { lensUrl } from '@/lib/urls';
 import { registerMenus } from '@/lib/menus';
 import { resolveKeepingInto } from '@/lib/settings';
-import type { Message } from '@/lib/types';
+import type { Message, PageCredit } from '@/lib/types';
 
 export default defineBackground(() => {
-  const deps: KeepDeps = { store: openImageStore(), fetchBlob, decode: decodeInWorker };
+  const deps: KeepDeps = { store: openImageStore(), fetchImage, decode: decodeInWorker };
 
   async function openLens(imageUrl: string): Promise<boolean> {
     const url = lensUrl(imageUrl);
@@ -40,11 +40,18 @@ export default defineBackground(() => {
       return;
     }
     if (info.menuItemId !== 'keep') return;
+    // Ask the page what it says about this image; keep without page credit if it can't answer.
+    let pageCredit: PageCredit | undefined;
+    if (tab?.id !== undefined) {
+      const ask: Message = { type: 'credit-for', imageUrl: info.srcUrl };
+      pageCredit = (await browser.tabs.sendMessage(tab.id, ask).catch(() => undefined)) as PageCredit | undefined;
+    }
     const result = await keepImage(deps, {
       imageUrl: info.srcUrl,
       pageUrl: tab?.url ?? info.pageUrl ?? '',
       pageTitle: tab?.title ?? '',
       board: await resolveKeepingInto(deps.store),
+      pageCredit,
     });
     if (tab?.id !== undefined) {
       const toast: Message = { type: 'toast', result };

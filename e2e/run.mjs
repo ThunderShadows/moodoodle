@@ -151,7 +151,7 @@ const gallery = await ctx.newPage();
 await gallery.goto(`chrome-extension://${extId}/gallery.html`);
 const keepAll = await gallery.evaluate(async (pageUrl) => {
   const [tab] = await chrome.tabs.query({ url: pageUrl });
-  const urls = await chrome.tabs.sendMessage(tab.id, { type: 'collect-images' });
+  const { urls } = await chrome.tabs.sendMessage(tab.id, { type: 'collect-images' });
   const res = await chrome.runtime.sendMessage({ type: 'keep-many', imageUrls: urls, pageUrl: tab.url, pageTitle: tab.title });
   return { urls, res };
 }, `${base}/page.html`);

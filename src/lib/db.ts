@@ -1,6 +1,6 @@
 import { openDB, type DBSchema } from 'idb';
 import { BoardNameInvalid, validateBoardName } from './boards';
-import { emptyCredit, type Board, type BoardColor, type SavedImage } from './types';
+import { emptyCredit, type Board, type BoardColor, type Credit, type SavedImage } from './types';
 
 interface Schema extends DBSchema {
   images: { key: string; value: SavedImage; indexes: { byUrl: string; bySavedAt: string; byBoard: string } };
@@ -19,6 +19,7 @@ export interface ImageStore {
   /** Small preview for grids; falls back to the full image for keeps made before v1.1. */
   getThumb(id: string): Promise<Blob | undefined>;
   setTags(id: string, tags: string[]): Promise<void>;
+  setCredit(id: string, credit: Credit): Promise<void>;
   remove(id: string): Promise<void>;
   listBoards(): Promise<Board[]>;
   getBoard(id: string): Promise<Board | undefined>;
@@ -89,6 +90,12 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
     async getThumb(id) {
       const row = await (await dbp).get('thumbs', id);
       return row ? new Blob([row.bytes], { type: row.type }) : this.getBlob(id);
+    },
+    async setCredit(id, credit) {
+      const tx = (await dbp).transaction('images', 'readwrite');
+      const image = await tx.store.get(id);
+      if (image) await tx.store.put({ ...image, credit });
+      await tx.done;
     },
     async setTags(id, tags) {
       const db = await dbp;
