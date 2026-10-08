@@ -24,9 +24,15 @@ To show the Keep button, moodoodle runs on the pages you visit and notices when 
 Nothing about a page is stored or sent until you press Keep. Opening the popup counts the images on the
 current page so it can offer "Keep all"; that count is not stored.
 
+## Find similar runs on your device
+
+**Find similar** compares images with a small image-recognition model that ships inside the extension and runs
+on your computer. moodoodle stores a numeric "fingerprint" of each kept image for this. No image, fingerprint
+or address is sent anywhere, and the model is never downloaded from the internet.
+
 ## When information leaves your browser
 
-Only when you press **Find similar**: moodoodle opens Google Lens in a new tab with that image's address.
+Only if you click **Open in Google Lens**: moodoodle opens Google Lens in a new tab with that image's address.
 From then on, Google's privacy policy applies to that page.
 
 ## Your control

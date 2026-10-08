@@ -129,6 +129,29 @@ await gallery.evaluate(() => window.scrollTo(0, 0));
 await gallery.waitForTimeout(250);
 const shotExport = await gallery.screenshot();
 
+// 2b) Find similar: wait for on-device embeddings, then open the orbit from the gallery
+for (let i = 0; i < 120; i++) {
+  const ready = await sw.evaluate(async () => {
+    const db = await new Promise((res) => { const r = indexedDB.open('moodoodle'); r.onsuccess = () => res(r.result); });
+    const count = (store) => new Promise((res) => { const r = db.transaction(store).objectStore(store).count(); r.onsuccess = () => res(r.result); });
+    const ok = (await count('embeddings')) === (await count('images'));
+    db.close();
+    return ok;
+  });
+  if (ready) break;
+  await new Promise((r) => setTimeout(r, 500));
+}
+await gallery.reload(); // clears the selection from the export shot
+await gallery.waitForTimeout(700);
+await tiles.nth(order.indexOf('flower')).click();
+await gallery.getByRole('button', { name: 'Find similar' }).click();
+await gallery.waitForSelector('.orbit .orb', { timeout: 30000 });
+await gallery.waitForTimeout(400);
+await gallery.locator('.orbit .orb').first().click();
+await gallery.waitForTimeout(300);
+const shotSimilar = await gallery.screenshot();
+await gallery.keyboard.press('Escape');
+
 // 3) Popup with the sketchbook tab as the active page
 const popup = await ctx.newPage();
 await popup.setViewportSize({ width: 400, height: 520 });
@@ -163,6 +186,7 @@ async function frame(file, title, note, shot, { width = 1000, side = false } = {
 await frame('1-gallery.png', 'All your favorite doodles, in one cozy place', 'search by site, tag or color', shotGallery);
 await frame('2-keep.png', 'Keep any image in one click', 'hover, press Keep, done', shotHover);
 await frame('3-popup.png', 'Keep a whole page of inspiration at once', 'right from the toolbar', shotPopup, { width: 380, side: true });
+await frame('5-similar.png', 'See more like it, from your own saves', 'matched right on your device', shotSimilar);
 await frame('4-export.png', 'Pick your favorites, take them anywhere', '.zip with a note of where each came from', shotExport);
 
 await ctx.close();
