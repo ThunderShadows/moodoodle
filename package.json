@@ -15,7 +15,8 @@
     "postinstall": "wxt prepare",
     "test": "vitest run",
     "e2e": "node e2e/run.mjs",
-    "shots": "node e2e/store-shots.mjs"
+    "shots": "node e2e/store-shots.mjs",
+    "fetch-model": "bash scripts/fetch-model.sh"
   },
   "devDependencies": {
     "@tsconfig/svelte": "^5.0.8",
@@ -37,6 +38,7 @@
     "@fontsource/bricolage-grotesque": "^5.3.0",
     "@fontsource/caveat": "^5.3.0",
     "@fontsource/figtree": "^5.3.0",
+    "@huggingface/transformers": "^4.3.1",
     "idb": "^8.0.4",
     "jszip": "^3.10.2"
   }

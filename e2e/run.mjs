@@ -341,6 +341,29 @@ const noaiTry = await gallery.evaluate(async (u) => {
 }, `${base}/noai`);
 check('NoAI page is detected and bulk keep is refused by the worker', noaiTry.noAI === true && noaiTry.unflagged.blocked === true && noaiTry.unflagged.kept === 0, JSON.stringify(noaiTry));
 
+// ── Find similar (on-device embeddings) ──────────────────
+const embeddedAll = await (async () => {
+  for (let i = 0; i < 120; i++) {
+    const counts = await sw.evaluate(async () => {
+      const db = await new Promise((res) => { const r = indexedDB.open('moodoodle'); r.onsuccess = () => res(r.result); });
+      const count = (store) => new Promise((res) => { const r = db.transaction(store).objectStore(store).count(); r.onsuccess = () => res(r.result); });
+      const out = { images: await count('images'), embeddings: await count('embeddings') };
+      db.close();
+      return out;
+    });
+    if (counts.images > 0 && counts.embeddings === counts.images) return counts;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return null;
+})();
+check('every kept image gets an on-device embedding', !!embeddedAll, JSON.stringify(embeddedAll));
+const sim = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'similar', imageUrl: u }), `${base}/credited.png`);
+check('similar returns up to 6 of your saves, never the image itself',
+  !!sim && Array.isArray(sim.results) && sim.results.length > 0 && sim.results.length <= 6 && sim.results.every((r) => !r.image.imageUrl.endsWith('/credited.png')),
+  JSON.stringify({ n: sim?.results?.length, learning: sim?.learning, top: sim?.results?.[0]?.image?.imageUrl?.split('/').pop(), score: sim?.results?.[0]?.score }));
+const simNew = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'similar', imageUrl: u }), `${base}/icon.png`);
+check('similar works for an image you have not kept', !!simNew && Array.isArray(simNew.results) && !simNew.failed, JSON.stringify({ n: simNew?.results?.length, failed: simNew?.failed }));
+
 await ctx.close();
 server.close();
 const failed = results.filter((r) => !r.ok).length;

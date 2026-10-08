@@ -80,6 +80,8 @@ export type Message =
   | { type: 'keep'; imageUrl: string; pageUrl: string; pageTitle: string; pageCredit?: PageCredit }
   | { type: 'keep-many'; imageUrls: string[]; pageUrl: string; pageTitle: string; pageCredits?: Record<string, PageCredit>; pageNoAI?: boolean }
   | { type: 'credit-for'; imageUrl: string }
+  | { type: 'similar'; imageUrl: string }
+  | { type: 'show-similar'; imageUrl: string }
   | { type: 'lens'; imageUrl: string }
   | { type: 'collect-images' }
   | { type: 'toast'; result: KeepResult };
@@ -116,3 +118,8 @@ export interface CollectResult {
   /** The page opts out of AI use (NoAI meta). */
   noAI: boolean;
 }
+
+/** Messages the worker sends to the offscreen document that runs the image model. */
+export type OffscreenMessage =
+  | { target: 'offscreen'; type: 'embed-image'; id: string }
+  | { target: 'offscreen'; type: 'embed-url'; url: string };

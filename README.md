@@ -3,6 +3,7 @@
 Keep the designs you love. Find more like them.
 
     npm install
+    npm run fetch-model   # downloads the 24 MB on-device image model once
     npm run dev     # launches Chrome with the extension
     npm test        # unit tests
     npm run build && npm run e2e   # end-to-end checks in headless Chromium

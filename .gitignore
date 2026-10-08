@@ -27,3 +27,6 @@ web-ext.config.ts
 
 # local copy of the unpacked build
 /chrome-mv3
+
+# on-device model weights (npm run fetch-model)
+/public/models/
