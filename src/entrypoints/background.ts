@@ -45,7 +45,7 @@ export default defineBackground(() => {
   async function backfill() {
     for (const id of await deps.store.missingEmbeddingIds()) embedImage(id);
   }
-  const afterKeep = (r: KeepResult) => { if (r.status === 'kept') embedImage(r.image.id); return r; };
+  const afterKeep = (r: KeepResult) => { if (r.status === 'kept' && !r.image.credit.noAI) embedImage(r.image.id); return r; };
   backfill().catch(() => {});
 
   async function openLens(imageUrl: string): Promise<boolean> {

@@ -27,7 +27,7 @@ export interface ImageStore {
   setEmbedding(id: string, vec: Float32Array): Promise<void>;
   getEmbedding(id: string): Promise<Float32Array | undefined>;
   listEmbeddings(): Promise<{ id: string; vec: Float32Array }[]>;
-  /** Ids of kept images that have no embedding yet (backfill queue). */
+  /** Ids of kept images that still need an embedding (never NoAI images). */
   missingEmbeddingIds(): Promise<string[]>;
   remove(id: string): Promise<void>;
   listBoards(): Promise<Board[]>;
@@ -115,7 +115,8 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
     async missingEmbeddingIds() {
       const db = await dbp;
       const have = new Set(await db.getAllKeys('embeddings'));
-      return (await db.getAllKeys('images')).filter((id) => !have.has(id));
+      // Images whose creator opted out of AI use never get a stored fingerprint (spec §6).
+      return (await db.getAll('images')).filter((i) => !i.credit.noAI && !have.has(i.id)).map((i) => i.id);
     },
     async setCredit(id, credit) {
       const tx = (await dbp).transaction('images', 'readwrite');

@@ -204,3 +204,12 @@ describe('embeddings (database v4)', () => {
     expect(await again.listEmbeddings()).toEqual([]);
   });
 });
+
+describe('embeddings respect NoAI', () => {
+  it('never queues NoAI images for an embedding', async () => {
+    const store = freshStore();
+    const ok = await store.add(sample('https://x.com/ok.png'), new Blob([new Uint8Array([1])]));
+    await store.add({ ...sample('https://x.com/noai.png'), credit: { ...emptyCredit(), noAI: true } }, new Blob([new Uint8Array([2])]));
+    expect(await store.missingEmbeddingIds()).toEqual([ok.id]);
+  });
+});

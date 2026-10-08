@@ -71,3 +71,16 @@ describe('toOrbitData', () => {
     expect(d.results[0]!.src.startsWith('data:image/png')).toBe(true);
   });
 });
+
+describe('findSimilar with NoAI images', () => {
+  it('can search from a NoAI image without storing its fingerprint', async () => {
+    const { store, ids } = await setup();
+    const noai = await store.add({ ...sample('https://site.com/noai.png'), credit: { ...emptyCredit(), noAI: true } }, png());
+    const embedUrl = vi.fn(async () => vec(1, 0, 0));
+    const r = await findSimilar({ store, embedUrl }, 'https://site.com/noai.png');
+    expect(embedUrl).toHaveBeenCalledWith('https://site.com/noai.png');
+    expect(r.results.map((x) => x.image.id)).toEqual([ids.query, ids.near, ids.mid]);
+    expect(await store.getEmbedding(noai.id)).toBeUndefined();
+    expect(r.learning).toBe(false);
+  });
+});

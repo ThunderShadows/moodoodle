@@ -32,6 +32,8 @@ browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
   if (msg?.target !== 'offscreen') return false;
   (async () => {
     if (msg.type === 'embed-image') {
+      const kept = (await store.list()).find((i) => i.id === msg.id);
+      if (kept?.credit.noAI) return { ok: true }; // never store a fingerprint for NoAI images
       const blob = await store.getThumb(msg.id);
       if (!blob) throw new Error('image not found');
       await store.setEmbedding(msg.id, await embed(await RawImage.fromBlob(blob)));
