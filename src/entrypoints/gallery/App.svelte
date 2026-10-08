@@ -75,7 +75,8 @@
 
   async function saveCredit(credit: Credit) {
     if (!only) return;
-    await store.setCredit(only.id, credit);
+    // Credits built from reactive state are Svelte proxies; IndexedDB can only store plain objects.
+    await store.setCredit(only.id, $state.snapshot(credit));
     await load();
   }
 

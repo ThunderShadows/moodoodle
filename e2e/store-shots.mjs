@@ -110,7 +110,8 @@ const tag = async (name, text) => {
   await gallery.fill('#d-tags', text);
   await gallery.getByRole('button', { name: 'Save', exact: true }).click();
   await gallery.waitForTimeout(250);
-  await tile.click();
+  // Close the details panel (it would cover tiles on the right) and clear the selection.
+  await gallery.getByRole('button', { name: 'Close details' }).click();
 };
 await tag('sun', 'sunny, cute');
 await tag('cat', 'cat, cute');

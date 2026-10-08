@@ -10,6 +10,15 @@ const extDir = process.argv[2] ?? '.output/chrome-mv3';
 const shots = process.argv[3] ?? '.output/e2e';
 fs.mkdirSync(shots, { recursive: true });
 const results = [];
+
+/** Inserts an XMP APP1 segment right after a JPEG's SOI marker. */
+function withXmp(jpeg, xmp) {
+  const header = Buffer.from('http://ns.adobe.com/xap/1.0/\0', 'latin1');
+  const body = Buffer.concat([header, Buffer.from(xmp, 'utf8')]);
+  const len = Buffer.alloc(2);
+  len.writeUInt16BE(body.length + 2);
+  return Buffer.concat([jpeg.subarray(0, 2), Buffer.from([0xff, 0xe1]), len, body, jpeg.subarray(2)]);
+}
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
@@ -40,6 +49,12 @@ const files = {
   '/big.png': await png('#F7B2D9', '#8E3A6B', 1200),
   '/heart.png': await png('#F7D3E6', '#B03A78', 300),
 };
+await maker.setContent('<body style="margin:0"><div style="width:300px;height:300px;background:#E3D9FB"></div></body>');
+await maker.setViewportSize({ width: 300, height: 300 });
+files['/xmp.jpg'] = withXmp(await maker.screenshot({ type: 'jpeg' }),
+  '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF><rdf:Description><dc:creator><rdf:Seq><rdf:li>Lena O.</rdf:li></rdf:Seq></dc:creator>'
+  + '<cc:license rdf:resource="https://creativecommons.org/licenses/by-nc/4.0/"/></rdf:Description></rdf:RDF></x:xmpmeta>');
+files['/credited.png'] = files['/mint.png'];
 await maker.close();
 
 const page = `<!doctype html><html><head><title>Spring sketchbook</title></head>
@@ -56,6 +71,11 @@ const page = `<!doctype html><html><head><title>Spring sketchbook</title></head>
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/' || url === '/page.html') return res.writeHead(200, { 'content-type': 'text/html' }).end(page);
+  if (url === '/credited') return res.writeHead(200, { 'content-type': 'text/html' }).end(`<!doctype html><html><head><title>Mint study</title>
+<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'ImageObject', contentUrl: `http://${req.headers.host}/credited.png`, name: 'Mint study', creator: { '@type': 'Person', name: 'Jane Doe', url: 'https://example.com/jane' }, license: 'https://creativecommons.org/licenses/by/4.0/' })}</script>
+</head><body style="margin:40px"><img id="credited" src="/credited.png" width="360" height="360"></body></html>`);
+  if (url === '/noai') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><head><title>No AI</title><meta name="robots" content="noai, noimageai"></head><body style="margin:40px"><img src="/sun-noai.png" width="300" height="300"><img src="/heart2.png" width="300" height="300"></body></html>');
+  if (url === '/sun-noai.png' || url === '/heart2.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(files['/peach.png']);
   // Simulated hotlink protection: only serve when the page itself is the referrer.
   if (url === '/blocked.png' && !req.headers.referer) return res.writeHead(403).end('no');
   if (files[url]) return res.writeHead(200, { 'content-type': 'image/png' }).end(files[url]);
@@ -278,6 +298,48 @@ await gallery.waitForTimeout(400);
 check('deleting a board keeps its images', (await gallery.getByRole('button', { name: /^Ocean study/ }).count()) === 0 && (await tiles.count()) === allAfterRemove, `tiles=${await tiles.count()} expected=${allAfterRemove}`);
 const afterDelete = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'keep', imageUrl: u, pageUrl: u, pageTitle: 'Sky' }), `${base}/sky.png?v=2`);
 check('keeping-into clears when its board is deleted', afterDelete.status === 'kept' && !afterDelete.boardName, JSON.stringify({ s: afterDelete.status, b: afterDelete.boardName }));
+
+// ── Credits ──────────────────────────────────────────────
+await web.goto(`${base}/credited`);
+await web.waitForTimeout(400);
+await keepViaPill('credited');
+const creditedRec = (await stored()).find((x) => x.imageUrl.endsWith('/credited.png'));
+check('page JSON-LD credit is recorded on keep', !!creditedRec, JSON.stringify(creditedRec ?? null));
+const xmpKeep = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'keep', imageUrl: u, pageUrl: u, pageTitle: 'Lilac' }), `${base}/xmp.jpg`);
+check('file XMP credit is recorded on keep', xmpKeep.status === 'kept' && xmpKeep.image.credit.creator === 'Lena O.' && xmpKeep.image.credit.license.code === 'by-nc', JSON.stringify(xmpKeep.image?.credit ?? null));
+
+await gallery.reload();
+await gallery.waitForTimeout(500);
+const janeTile = tiles.filter({ hasText: 'by Jane Doe' });
+check('tile shows creator and Free-to-reuse badge', (await janeTile.count()) === 1 && (await janeTile.first().innerText()).includes('Free to reuse'));
+check('XMP tile shows Reuse-with-conditions badge', (await tiles.filter({ hasText: 'by Lena O.' }).first().innerText()).includes('Reuse with conditions'));
+
+await janeTile.first().click();
+await gallery.fill('#d-creator', 'Jane D. Doe');
+await gallery.getByRole('button', { name: 'Save', exact: true }).click();
+await gallery.waitForTimeout(300);
+await gallery.reload();
+await gallery.waitForTimeout(500);
+check('creator edit persists after reload', (await tiles.filter({ hasText: 'by Jane D. Doe' }).count()) === 1);
+
+await tiles.filter({ hasText: 'by Jane D. Doe' }).first().click();
+const cdl = gallery.waitForEvent('download');
+await gallery.getByRole('button', { name: 'Download .zip' }).click();
+const creditsZipPath = path.join(shots, 'credits.zip');
+await (await cdl).saveAs(creditsZipPath);
+const creditsMd = await (await JSZip.loadAsync(fs.readFileSync(creditsZipPath))).file('CREDITS.md').async('string');
+check('CREDITS.md has the credit line', creditsMd.includes('**Credit line:** “Mint study” by Jane D. Doe, CC BY 4.0'), creditsMd.split('\n').find((l) => l.includes('Credit')) ?? '');
+await gallery.screenshot({ path: path.join(shots, '11-credits.png') });
+
+await web.goto(`${base}/noai`);
+await web.waitForTimeout(400);
+const noaiTry = await gallery.evaluate(async (u) => {
+  const [tab] = await chrome.tabs.query({ url: u });
+  const res = await chrome.tabs.sendMessage(tab.id, { type: 'collect-images' });
+  const unflagged = await chrome.runtime.sendMessage({ type: 'keep-many', imageUrls: res.urls, pageUrl: tab.url, pageTitle: tab.title, pageNoAI: res.noAI });
+  return { noAI: res.noAI, unflagged };
+}, `${base}/noai`);
+check('NoAI page is detected and bulk keep is refused by the worker', noaiTry.noAI === true && noaiTry.unflagged.blocked === true && noaiTry.unflagged.kept === 0, JSON.stringify(noaiTry));
 
 await ctx.close();
 server.close();
