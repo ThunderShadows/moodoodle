@@ -61,6 +61,8 @@ export function toOrbitData(res: SimilarResult, center: { title: string; centerS
     learning: res.learning,
     failed: res.failed,
     lensUrl: res.lensUrl,
+    // Web results arrive with Plus (Plan D); until then the outer ring invites people to upgrade.
+    web: { state: 'locked' },
     results: res.results.map(({ image, thumb }) => ({
       id: image.id,
       src: thumb,

@@ -276,9 +276,11 @@ designed in the mockup canvas ("Find similar: orbit overlay"):
 | Inner: your saves | On-device image embeddings (Transformers.js with a CLIP-style model) computed when an image is kept; nearest neighbours by cosine similarity | Free | Nothing leaves the device |
 | Outer: the web | Needs a visual-search API (e.g. Google Cloud Vision web detection, ~$3.50 per 1,000 searches; SerpApi Google Lens, from $25 per 1,000). Google Lens itself has no public API, and scraping it would break Google's terms and the store's rules | Paid per search; the key must sit behind a small server we run | The image URL goes to our server and the API provider; needs a privacy-policy update and the CWS disclosure |
 
-**Decision (2026-10-07): inner ring only for now.** v1.2 ships the overlay with your-saves results and the
-"Open in Google Lens ↗" link. No server, no API cost, nothing new leaves the device. The outer ring is parked
-until Plus is selling; when it returns it'll be Plus-only behind a small key-holding server.
+**Decision (2026-10-08): both rings.** The inner ring (your saves, on-device) ships for everyone in v1.2.
+The outer ring (web results) is **Plus-only**, using **Google Cloud Vision web detection** through a small server
+of ours that holds the API key and only answers requests carrying a valid Dodo license (so the key can't be
+abused). It's built together with payments (Plan D). Until then, the outer ring shows a locked
+*"Search the web too · Plus"* invitation. Google Lens is never scraped or framed; "Open in Google Lens ↗" stays a link.
 
 Empty and edge states for v1.2:
 - Fewer than 6 similar saves: show the ones found; with none, the center image shows the line

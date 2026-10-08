@@ -16,16 +16,22 @@ export interface OrbitData {
   loading?: boolean;
   failed?: boolean;
   lensUrl: string | null;
+  /** Outer "around the web" ring. Plus-only; 'locked' shows the invitation (v1.2 spec §11). */
+  web?: { state: 'locked' };
 }
 
 export interface OrbitHandlers {
   onClose(): void;
   onShowInGallery(id: string): void;
+  /** Called when a free user taps "Search the web too · Plus". */
+  onUnlock?(): void;
 }
 
 const MAX = 6;
 const STAGE = 760;
 const RING = 200;
+const OUTER = 330;
+const OUTER_SLOTS = 8;
 
 export const orbitCss = `
 .orbit { position: fixed; inset: 0; z-index: 2147483647; font: 500 15px/1.4 var(--body, system-ui, sans-serif); color: #FFFFFF; }
@@ -51,6 +57,10 @@ export const orbitCss = `
 .orb:focus-visible, .close:focus-visible, .card button:focus-visible { outline: 3px solid #FFB58F; outline-offset: 3px; }
 .orb img, .center img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .center { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * ${220 / STAGE}); height: calc(var(--s) * ${220 / STAGE}); transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; border: 6px solid #FFFFFF; background: #3A3245; box-shadow: 0 0 0 16px rgba(255,181,143,0.22), 0 20px 50px rgba(0,0,0,0.35); }
+.ghost { position: absolute; width: calc(var(--s) * ${76 / STAGE}); height: calc(var(--s) * ${76 / STAGE}); transform: translate(-50%, -50%); border-radius: 50%; border: 2px dashed rgba(255,255,255,0.22); }
+.unlock { position: absolute; left: 50%; top: calc(50% - var(--s) * ${(OUTER + 46) / STAGE}); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 16px; border: 0; border-radius: 999px; background: rgba(255,255,255,0.14); color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.unlock b { height: 30px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: #FFB58F; color: #2A2433; font-size: 13px; }
+.unlock:focus-visible { outline: 3px solid #FFB58F; outline-offset: 3px; }
 .note { position: absolute; left: 50%; top: calc(50% + var(--s) * 0.2); transform: translateX(-50%); width: min(420px, 80vw); text-align: center; font: italic 600 20px/1.3 var(--hand, system-ui, sans-serif); color: #EDE7F5; }
 .card { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); display: flex; align-items: center; gap: 14px; padding: 12px 12px 12px 18px; border-radius: 22px; background: #FFFFFF; color: #2A2433; box-shadow: 0 18px 40px rgba(0,0,0,0.3); }
 .card .text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
@@ -89,6 +99,7 @@ export function openOrbit(root: ShadowRoot | HTMLElement, data: OrbitData, handl
 
   let current = data;
   let picked: string | undefined;
+  let plusNote = false;
 
   function close() {
     document.removeEventListener('keydown', onKey, true);
@@ -152,6 +163,25 @@ export function openOrbit(root: ShadowRoot | HTMLElement, data: OrbitData, handl
       spin.append(slot);
     });
 
+    if (d.web?.state === 'locked') {
+      ring.append(svg('circle', { cx: STAGE / 2, cy: STAGE / 2, r: OUTER, fill: 'none', stroke: 'rgba(255,255,255,0.10)', 'stroke-width': 1.5, 'stroke-dasharray': '4 8' }));
+      for (let i = 0; i < OUTER_SLOTS; i++) {
+        const a = (i / OUTER_SLOTS) * Math.PI * 2 - Math.PI / 2 + Math.PI / OUTER_SLOTS;
+        const ghost = el('div', 'ghost');
+        ghost.style.left = `${((STAGE / 2 + OUTER * Math.cos(a)) / STAGE) * 100}%`;
+        ghost.style.top = `${((STAGE / 2 + OUTER * Math.sin(a)) / STAGE) * 100}%`;
+        stage.append(ghost);
+      }
+      const unlock = el('button', 'unlock', 'Search the web too ');
+      unlock.type = 'button';
+      unlock.append(el('b', '', 'Plus'));
+      unlock.addEventListener('click', () => {
+        if (handlers.onUnlock) handlers.onUnlock();
+        else { plusNote = true; render(); }
+      });
+      stage.append(unlock);
+    }
+
     const center = el('div', 'center');
     const cimg = el('img');
     cimg.alt = d.title;
@@ -159,7 +189,7 @@ export function openOrbit(root: ShadowRoot | HTMLElement, data: OrbitData, handl
     center.append(cimg);
     stage.append(ring, spin, center);
 
-    const note = noteText(d, results.length);
+    const note = plusNote ? 'Web search is coming with moodoodle Plus, along with unlimited boards and downloads.' : noteText(d, results.length);
     if (note) stage.append(el('p', 'note', note));
 
     overlay.append(backdrop, head, closeBtn, stage, el('span', 'hint', 'hover to pause · click to peek'));

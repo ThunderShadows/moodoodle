@@ -84,3 +84,28 @@ describe('openOrbit', () => {
     expect(host.querySelector('a.lens')).toBeNull();
   });
 });
+
+describe('web ring', () => {
+  it('shows a locked "Search the web too · Plus" ring around your saves', () => {
+    const onUnlock = vi.fn();
+    openOrbit(host, data({ web: { state: 'locked' } }), { onClose: vi.fn(), onShowInGallery: vi.fn(), onUnlock });
+    expect(host.querySelectorAll('.ghost')).toHaveLength(8);
+    const pill = host.querySelector<HTMLButtonElement>('.unlock')!;
+    expect(pill.textContent).toContain('Search the web too');
+    pill.click();
+    expect(onUnlock).toHaveBeenCalled();
+  });
+  it('has no web ring when none is given', () => {
+    openOrbit(host, data(), { onClose: vi.fn(), onShowInGallery: vi.fn() });
+    expect(host.querySelectorAll('.ghost')).toHaveLength(0);
+    expect(host.querySelector('.unlock')).toBeNull();
+  });
+});
+
+describe('web ring before Plus exists', () => {
+  it('explains Plus is coming when there is nowhere to upgrade yet', () => {
+    openOrbit(host, data({ web: { state: 'locked' } }), { onClose: vi.fn(), onShowInGallery: vi.fn() });
+    host.querySelector<HTMLButtonElement>('.unlock')!.click();
+    expect(host.textContent).toContain('Web search is coming with moodoodle Plus');
+  });
+});
