@@ -4,6 +4,7 @@ import { isKeepableUrl } from './urls';
 import { mergeCredit, parseRobots } from './credit';
 import { readXmp } from './xmp';
 import { bulkKeepBlocked } from './respect';
+import { cropUrl, type CropRect } from './crop';
 import { MAX_BYTES, type KeepErrorReason, type KeepManyResult, type KeepResult, type PageCredit, type SavedImage } from './types';
 
 export interface Decoded {
@@ -19,6 +20,8 @@ export interface KeepDeps {
   /** Downloads the image; `robots` is its X-Robots-Tag response header, if any. */
   fetchImage(url: string): Promise<{ blob: Blob; robots?: string }>;
   decode(blob: Blob): Promise<Decoded>;
+  /** Cuts a region out of an image (worker: OffscreenCanvas). Only needed for crops. */
+  crop?(blob: Blob, rect: CropRect): Promise<Blob>;
   maxBytes?: number;
 }
 
@@ -30,6 +33,8 @@ export interface KeepInput {
   board?: { id: string; name: string };
   /** Credit facts the page states about this image (read by the content script). */
   pageCredit?: PageCredit;
+  /** Keep only this part of the image (fractions of the image). */
+  crop?: CropRect;
 }
 
 export function siteOf(url: string): string {
@@ -53,7 +58,9 @@ async function duplicate(deps: KeepDeps, image: SavedImage, board?: KeepInput['b
 export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepResult> {
   if (!isKeepableUrl(input.imageUrl)) return fail('unsupported-url');
 
-  const existing = await deps.store.findByUrl(input.imageUrl);
+  // A crop is its own keep, identified by the image address plus the crop rectangle.
+  const key = input.crop ? cropUrl(input.imageUrl, input.crop) : input.imageUrl;
+  const existing = await deps.store.findByUrl(key);
   if (existing) return duplicate(deps, existing, input.board);
 
   let blob: Blob;
@@ -65,6 +72,16 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
   }
   if (!blob.type.startsWith('image/')) return fail('not-an-image');
   if (blob.size > (deps.maxBytes ?? MAX_BYTES)) return fail('too-big');
+  // Read the file's own credit (XMP) before any crop: a cropped copy no longer carries it.
+  const head = new Uint8Array(await blob.slice(0, 256 * 1024).arrayBuffer());
+  if (input.crop) {
+    if (!deps.crop) return fail('decode-failed');
+    try {
+      blob = await deps.crop(blob, input.crop);
+    } catch {
+      return fail('decode-failed');
+    }
+  }
 
   let decoded: Decoded;
   try {
@@ -74,14 +91,12 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
   }
 
   const palette = extractPalette(decoded.pixels);
-  // XMP sits near the start of the file; readXmp scans at most 256 KB.
-  const head = new Uint8Array(await blob.slice(0, 256 * 1024).arrayBuffer());
   const credit = mergeCredit({ page: input.pageCredit, xmp: readXmp(head), headerNoAI: parseRobots(robots) });
   const site = siteOf(input.pageUrl);
   try {
     const image = await deps.store.add(
       {
-        imageUrl: input.imageUrl,
+        imageUrl: key,
         pageUrl: input.pageUrl,
         pageTitle: input.pageTitle.trim() || site,
         site,
@@ -101,7 +116,7 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
     return { status: 'kept', image, boardName: input.board?.name };
   } catch (e) {
     // Another keep of the same URL won the race to the unique index.
-    const raced = await deps.store.findByUrl(input.imageUrl);
+    const raced = await deps.store.findByUrl(key);
     if (raced) return duplicate(deps, raced, input.board);
     throw e;
   }

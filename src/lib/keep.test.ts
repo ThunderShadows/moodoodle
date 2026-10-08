@@ -176,3 +176,47 @@ describe('keeping with credit', () => {
     expect(byUrl).toEqual({ 'https://a.com/1.png': undefined, 'https://a.com/2.png': 'Two' });
   });
 });
+
+describe('keeping a crop', () => {
+  const half = { x: 0, y: 0, w: 0.5, h: 0.5 };
+  const cropped = () => new Blob([new Uint8Array([9, 9])], { type: 'image/png' });
+
+  it('saves only the cropped part, as its own image with the original credit', async () => {
+    const crop = vi.fn(async () => cropped());
+    const d = deps({ crop });
+    const r = await keepImage(d, { ...input, crop: half, pageCredit: { jsonLd: { creator: 'Jane' }, noAI: false } });
+    expect(crop).toHaveBeenCalledWith(expect.any(Blob), half);
+    expect(r.status).toBe('kept');
+    if (r.status !== 'kept') return;
+    expect(r.image.imageUrl).toBe(`${input.imageUrl}#moodoodle-crop=0,0,0.5,0.5`);
+    expect(r.image.byteSize).toBe(2);
+    expect(r.image.credit.creator).toBe('Jane');
+    expect(d.fetchImage).toHaveBeenCalledWith(input.imageUrl);
+  });
+
+  it('keeps different crops of one image separately, and the same crop only once', async () => {
+    const d = deps({ crop: vi.fn(async () => cropped()) });
+    await keepImage(d, { ...input, crop: half });
+    expect((await keepImage(d, { ...input, crop: half })).status).toBe('duplicate');
+    expect((await keepImage(d, { ...input, crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 } })).status).toBe('kept');
+    expect((await keepImage(d, input)).status).toBe('kept');
+    expect(await d.store.list()).toHaveLength(3);
+  });
+
+  it('reports a crop that cannot be cut', async () => {
+    const d = deps({ crop: vi.fn(async () => { throw new Error('bad'); }) });
+    expect(await keepImage(d, { ...input, crop: half })).toEqual({ status: 'error', reason: 'decode-failed' });
+  });
+});
+
+describe('crops keep the file\'s own credit', () => {
+  it('reads XMP from the original file, not from the cropped copy', async () => {
+    const original = new Blob([
+      new Uint8Array([137, 80, 78, 71]),
+      '<x:xmpmeta><rdf:RDF><rdf:Description><dc:creator><rdf:Seq><rdf:li>Lena O.</rdf:li></rdf:Seq></dc:creator></rdf:Description></rdf:RDF></x:xmpmeta>',
+    ], { type: 'image/png' });
+    const d = deps({ fetchImage: vi.fn(async () => ({ blob: original })), crop: vi.fn(async () => new Blob([new Uint8Array([1])], { type: 'image/png' })) });
+    const r = await keepImage(d, { ...input, crop: { x: 0, y: 0, w: 0.5, h: 0.5 } });
+    expect(r.status === 'kept' && r.image.credit.creator).toBe('Lena O.');
+  });
+});
