@@ -175,3 +175,32 @@ describe('setCredit', () => {
     expect((await store.findByUrl('https://x.com/a.png'))?.credit).toMatchObject({ creator: 'Fixed', fieldSources: { creator: 'user' } });
   });
 });
+
+describe('embeddings (database v4)', () => {
+  it('stores, lists and finds images still missing an embedding', async () => {
+    const store = freshStore();
+    const a = await store.add(sample('https://x.com/a.png'), new Blob([new Uint8Array([1])]));
+    const b = await store.add(sample('https://x.com/b.png'), new Blob([new Uint8Array([2])]));
+    await store.setEmbedding(a.id, Float32Array.from([0.6, 0.8]));
+    expect(Array.from((await store.getEmbedding(a.id))!).map((x) => +x.toFixed(2))).toEqual([0.6, 0.8]);
+    expect((await store.listEmbeddings()).map((e) => e.id)).toEqual([a.id]);
+    expect(await store.missingEmbeddingIds()).toEqual([b.id]);
+  });
+  it('deleting an image deletes its embedding', async () => {
+    const store = freshStore();
+    const a = await store.add(sample('https://x.com/a.png'), new Blob([new Uint8Array([1])]));
+    await store.setEmbedding(a.id, Float32Array.from([1, 0]));
+    await store.remove(a.id);
+    expect(await store.getEmbedding(a.id)).toBeUndefined();
+    expect(await store.listEmbeddings()).toEqual([]);
+  });
+  it('upgrades a v3 collection without losing images', async () => {
+    const name = `v3-${crypto.randomUUID()}`;
+    const first = openImageStore(name);
+    await first.add(sample('https://x.com/keep.png'), new Blob([new Uint8Array([1])]));
+    // Re-opening at v4 must keep the v3 data and start with no embeddings.
+    const again = openImageStore(name);
+    expect((await again.list()).map((i) => i.imageUrl)).toEqual(['https://x.com/keep.png']);
+    expect(await again.listEmbeddings()).toEqual([]);
+  });
+});

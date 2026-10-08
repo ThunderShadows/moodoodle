@@ -7,7 +7,10 @@ interface Schema extends DBSchema {
   blobs: { key: string; value: { bytes: ArrayBuffer; type: string } };
   thumbs: { key: string; value: { bytes: ArrayBuffer; type: string } };
   boards: { key: string; value: Board };
+  embeddings: { key: string; value: { vec: Float32Array; model: string } };
 }
+
+export const EMBEDDING_MODEL = 'dinov2-small-q8';
 
 export type NewImage = Omit<SavedImage, 'id' | 'savedAt'>;
 
@@ -20,6 +23,12 @@ export interface ImageStore {
   getThumb(id: string): Promise<Blob | undefined>;
   setTags(id: string, tags: string[]): Promise<void>;
   setCredit(id: string, credit: Credit): Promise<void>;
+  /** On-device image fingerprint (normalized), used by Find similar. */
+  setEmbedding(id: string, vec: Float32Array): Promise<void>;
+  getEmbedding(id: string): Promise<Float32Array | undefined>;
+  listEmbeddings(): Promise<{ id: string; vec: Float32Array }[]>;
+  /** Ids of kept images that have no embedding yet (backfill queue). */
+  missingEmbeddingIds(): Promise<string[]>;
   remove(id: string): Promise<void>;
   listBoards(): Promise<Board[]>;
   getBoard(id: string): Promise<Board | undefined>;
@@ -37,7 +46,7 @@ export function normalizeTags(tags: string[]): string[] {
 }
 
 export function openImageStore(name = 'moodoodle', now: () => Date = () => new Date()): ImageStore {
-  const dbp = openDB<Schema>(name, 3, {
+  const dbp = openDB<Schema>(name, 4, {
     async upgrade(db, oldVersion, _newVersion, tx) {
       if (oldVersion < 1) {
         const images = db.createObjectStore('images', { keyPath: 'id' });
@@ -58,6 +67,7 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
           cursor = await cursor.continue();
         }
       }
+      if (oldVersion < 4) db.createObjectStore('embeddings');
     },
   });
 
@@ -91,6 +101,22 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
       const row = await (await dbp).get('thumbs', id);
       return row ? new Blob([row.bytes], { type: row.type }) : this.getBlob(id);
     },
+    async setEmbedding(id, vec) {
+      await (await dbp).put('embeddings', { vec, model: EMBEDDING_MODEL }, id);
+    },
+    async getEmbedding(id) {
+      return (await (await dbp).get('embeddings', id))?.vec;
+    },
+    async listEmbeddings() {
+      const tx = (await dbp).transaction('embeddings');
+      const [keys, values] = await Promise.all([tx.store.getAllKeys(), tx.store.getAll()]);
+      return keys.map((id, i) => ({ id, vec: values[i]!.vec }));
+    },
+    async missingEmbeddingIds() {
+      const db = await dbp;
+      const have = new Set(await db.getAllKeys('embeddings'));
+      return (await db.getAllKeys('images')).filter((id) => !have.has(id));
+    },
     async setCredit(id, credit) {
       const tx = (await dbp).transaction('images', 'readwrite');
       const image = await tx.store.get(id);
@@ -106,11 +132,12 @@ export function openImageStore(name = 'moodoodle', now: () => Date = () => new D
     },
     async remove(id) {
       const db = await dbp;
-      const tx = db.transaction(['images', 'blobs', 'thumbs'], 'readwrite');
+      const tx = db.transaction(['images', 'blobs', 'thumbs', 'embeddings'], 'readwrite');
       await Promise.all([
         tx.objectStore('images').delete(id),
         tx.objectStore('blobs').delete(id),
         tx.objectStore('thumbs').delete(id),
+        tx.objectStore('embeddings').delete(id),
         tx.done,
       ]);
     },
