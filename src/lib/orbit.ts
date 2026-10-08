@@ -30,9 +30,9 @@ const RING = 200;
 export const orbitCss = `
 .orbit { position: fixed; inset: 0; z-index: 2147483647; font: 500 15px/1.4 var(--body, system-ui, sans-serif); color: #FFFFFF; }
 .orbit * { box-sizing: border-box; }
-.backdrop { position: absolute; inset: 0; background: rgba(34, 28, 43, 0.88); }
+.backdrop { position: absolute; inset: 0; background: rgba(34, 28, 43, 0.86); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .head { position: absolute; top: 28px; left: 32px; display: flex; flex-direction: column; gap: 8px; max-width: 40vw; pointer-events: none; }
-.head .more { font: 600 22px/1 var(--hand, cursive); color: #CFC6DD; }
+.head .more { font: italic 600 20px/1 var(--hand, system-ui, sans-serif); color: #CFC6DD; }
 .head .title { font: 800 30px/1.05 var(--display, system-ui, sans-serif); letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .legend { align-self: flex-start; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 13px; font-weight: 600; }
 .legend i { width: 10px; height: 10px; border-radius: 50%; background: #FFB58F; }
@@ -51,7 +51,7 @@ export const orbitCss = `
 .orb:focus-visible, .close:focus-visible, .card button:focus-visible { outline: 3px solid #FFB58F; outline-offset: 3px; }
 .orb img, .center img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .center { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * ${220 / STAGE}); height: calc(var(--s) * ${220 / STAGE}); transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; border: 6px solid #FFFFFF; background: #3A3245; box-shadow: 0 0 0 16px rgba(255,181,143,0.22), 0 20px 50px rgba(0,0,0,0.35); }
-.note { position: absolute; left: 50%; top: calc(50% + var(--s) * 0.2); transform: translateX(-50%); width: min(420px, 80vw); text-align: center; font: 600 22px/1.3 var(--hand, cursive); color: #EDE7F5; }
+.note { position: absolute; left: 50%; top: calc(50% + var(--s) * 0.2); transform: translateX(-50%); width: min(420px, 80vw); text-align: center; font: italic 600 20px/1.3 var(--hand, system-ui, sans-serif); color: #EDE7F5; }
 .card { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); display: flex; align-items: center; gap: 14px; padding: 12px 12px 12px 18px; border-radius: 22px; background: #FFFFFF; color: #2A2433; box-shadow: 0 18px 40px rgba(0,0,0,0.3); }
 .card .text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .card .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -59,7 +59,7 @@ export const orbitCss = `
 .card button { flex-shrink: 0; height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: #FFB58F; color: #2A2433; font: inherit; font-weight: 700; cursor: pointer; }
 .badge { align-self: flex-start; display: inline-flex; height: 22px; align-items: center; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .badge.reuse { background: #CDEFD9; color: #1F5C3D; } .badge.conditions { background: #FFE7C7; color: #7A4A00; } .badge.reference { background: #ECE8F3; color: #4A4256; }
-.hint { position: absolute; left: 32px; bottom: 32px; font: 600 20px/1 var(--hand, cursive); color: #CFC6DD; }
+.hint { position: absolute; left: 32px; bottom: 32px; font: italic 600 18px/1 var(--hand, system-ui, sans-serif); color: #CFC6DD; }
 .lens { position: absolute; right: 32px; bottom: 34px; color: #FFB58F; font-weight: 700; font-size: 14px; }
 @media (max-width: 720px) { .hint, .head .more { display: none; } .lens { bottom: auto; top: 90px; right: 32px; } }
 `;

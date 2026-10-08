@@ -4,7 +4,6 @@
   import { openImageStore } from '@/lib/db';
   import { filterImages } from '@/lib/search';
   import { buildZip, slugify } from '@/lib/zip';
-  import { lensUrl } from '@/lib/urls';
   import { createUrlCache } from '@/lib/urlcache';
   import { BoardNameInvalid, ENFORCE_BOARD_LIMIT, FREE_BOARD_LIMIT, boardCounts, boardQuota, nextBoardColor } from '@/lib/boards';
   import { getKeepingInto, setKeepingInto } from '@/lib/settings';
@@ -12,6 +11,9 @@
   import Sidebar from './Sidebar.svelte';
   import AddToBoard from './AddToBoard.svelte';
   import Details from './Details.svelte';
+  import { browser } from 'wxt/browser';
+  import { openOrbit } from '@/lib/orbit';
+  import { toOrbitData, type SimilarResult } from '@/lib/findsimilar';
   import { BADGE_LABEL, badgeFor } from '@/lib/license';
 
   const store = openImageStore();
@@ -50,7 +52,8 @@
   }
 
   onMount(() => {
-    load();
+    const focus = new URLSearchParams(location.search).get('focus');
+    load().then(() => { if (focus && images.some((i) => i.id === focus)) focusImage(focus); });
     const onVisible = () => { if (document.visibilityState === 'visible') load(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
@@ -182,9 +185,28 @@
     await load();
   }
 
-  function similar() {
-    const url = only && lensUrl(only.imageUrl);
-    if (url) window.open(url, '_blank', 'noopener');
+  let orbitHost: HTMLDivElement | undefined;
+  async function similar() {
+    const image = only;
+    if (!image || !orbitHost) return;
+    const title = image.credit.title ?? image.pageTitle;
+    const centerSrc = thumbs[image.id] ?? image.imageUrl;
+    const orbit = openOrbit(orbitHost, { title, centerSrc, results: [], learning: false, loading: true, lensUrl: null }, {
+      onClose: () => {},
+      onShowInGallery: (id) => { orbit.close(); focusImage(id); },
+    });
+    const res = (await browser.runtime.sendMessage({ type: 'similar', imageUrl: image.imageUrl })) as SimilarResult;
+    orbit.update(toOrbitData(res, { title, centerSrc }));
+  }
+
+  /** Selects one image and scrolls it into view (used by "Show in gallery"). */
+  function focusImage(id: string) {
+    activeBoard = 'all';
+    query = '';
+    family = 'all';
+    selected.clear();
+    selected.add(id);
+    requestAnimationFrame(() => document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center' }));
   }
 </script>
 
@@ -232,7 +254,7 @@
       {:else}
         <div class="grid">
           {#each visible as img (img.id)}
-            <button type="button" class="tile" class:on={selected.has(img.id)} aria-pressed={selected.has(img.id)} onclick={() => toggle(img.id)}>
+            <button type="button" class="tile" data-id={img.id} class:on={selected.has(img.id)} aria-pressed={selected.has(img.id)} onclick={() => toggle(img.id)}>
               {#if thumbs[img.id]}
                 <img src={thumbs[img.id]} alt={img.pageTitle} width={img.width} height={img.height} loading="lazy" />
               {/if}
@@ -274,6 +296,7 @@
       <button type="button" class="ghost" onclick={remove}>Delete</button>
     </div>
   {/if}
+  <div bind:this={orbitHost}></div>
 </main>
 
 <style>

@@ -1,6 +1,8 @@
 import type { ImageStore } from './db';
 import { topSimilar } from './similar';
 import { lensUrl } from './urls';
+import { badgeFor } from './license';
+import type { OrbitData } from './orbit';
 import type { SavedImage } from './types';
 
 export interface SimilarResult {
@@ -49,4 +51,22 @@ export async function findSimilar(deps: FindDeps, imageUrl: string): Promise<Sim
     if (image && thumb) results.push({ image, thumb: await blobToDataUrl(thumb), score });
   }
   return { ...base, results };
+}
+
+/** Shapes a similarity result for the orbit overlay. */
+export function toOrbitData(res: SimilarResult, center: { title: string; centerSrc: string }): OrbitData {
+  return {
+    title: center.title,
+    centerSrc: center.centerSrc,
+    learning: res.learning,
+    failed: res.failed,
+    lensUrl: res.lensUrl,
+    results: res.results.map(({ image, thumb }) => ({
+      id: image.id,
+      src: thumb,
+      title: image.credit.title ?? image.pageTitle,
+      creator: image.credit.creator,
+      badge: badgeFor(image.credit.license),
+    })),
+  };
 }

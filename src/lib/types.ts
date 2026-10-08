@@ -82,6 +82,7 @@ export type Message =
   | { type: 'credit-for'; imageUrl: string }
   | { type: 'similar'; imageUrl: string }
   | { type: 'show-similar'; imageUrl: string }
+  | { type: 'open-gallery'; focus?: string }
   | { type: 'lens'; imageUrl: string }
   | { type: 'collect-images' }
   | { type: 'toast'; result: KeepResult };

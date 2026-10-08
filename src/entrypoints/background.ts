@@ -67,6 +67,11 @@ export default defineBackground(() => {
         return findSimilar({ store: deps.store, embedUrl }, msg.imageUrl);
       case 'lens':
         return openLens(msg.imageUrl);
+      case 'open-gallery': {
+        const path = msg.focus ? `/gallery.html?focus=${encodeURIComponent(msg.focus)}` : '/gallery.html';
+        await browser.tabs.create({ url: browser.runtime.getURL(path as '/gallery.html') });
+        return true;
+      }
       default:
         return undefined;
     }
@@ -79,7 +84,10 @@ export default defineBackground(() => {
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!info.srcUrl) return;
     if (info.menuItemId === 'lens') {
-      await openLens(info.srcUrl);
+      // Show the orbit on the page; fall back to Google Lens where the page can't host it (e.g. chrome:// pages).
+      const show: Message = { type: 'show-similar', imageUrl: info.srcUrl };
+      const shown = tab?.id !== undefined && (await browser.tabs.sendMessage(tab.id, show).then(() => true, () => false));
+      if (!shown) await openLens(info.srcUrl);
       return;
     }
     if (info.menuItemId !== 'keep') return;
@@ -105,7 +113,7 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as Message;
-    if (msg.type !== 'keep' && msg.type !== 'keep-many' && msg.type !== 'lens' && msg.type !== 'similar') return false;
+    if (msg.type !== 'keep' && msg.type !== 'keep-many' && msg.type !== 'lens' && msg.type !== 'similar' && msg.type !== 'open-gallery') return false;
     handle(msg).then(sendResponse, () => sendResponse({ status: 'error', reason: 'fetch-failed' }));
     return true;
   });

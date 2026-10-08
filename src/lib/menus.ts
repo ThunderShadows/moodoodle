@@ -7,5 +7,5 @@ interface Menus {
 export async function registerMenus(menus: Menus): Promise<void> {
   await menus.removeAll();
   menus.create({ id: 'keep', title: 'Keep image', contexts: ['image'] });
-  menus.create({ id: 'lens', title: 'Find similar (Google Lens)', contexts: ['image'] });
+  menus.create({ id: 'lens', title: 'Find similar', contexts: ['image'] });
 }

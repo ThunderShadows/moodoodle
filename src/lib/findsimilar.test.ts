@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi } from 'vitest';
-import { findSimilar } from './findsimilar';
+import { findSimilar, toOrbitData } from './findsimilar';
 import { openImageStore, type NewImage } from './db';
 import { normalize } from './similar';
 import { emptyCredit } from './types';
@@ -57,5 +57,17 @@ describe('findSimilar', () => {
     const r = await findSimilar({ store, embedUrl: vi.fn(async () => { throw new Error('blocked'); }) }, 'https://other.com/x.png');
     expect(r.results).toEqual([]);
     expect(r.failed).toBe(true);
+  });
+});
+
+describe('toOrbitData', () => {
+  it('maps results to orbs with title, creator and badge', async () => {
+    const { store, ids } = await setup();
+    await store.setCredit(ids.near!, { ...emptyCredit(), creator: 'Jane', license: { kind: 'cc', code: 'by', url: 'u' } });
+    const r = await findSimilar({ store, embedUrl: vi.fn() }, 'https://site.com/query.png');
+    const d = toOrbitData(r, { title: 'My page', centerSrc: 'data:x' });
+    expect(d).toMatchObject({ title: 'My page', centerSrc: 'data:x', learning: false, lensUrl: r.lensUrl });
+    expect(d.results[0]).toMatchObject({ id: ids.near, title: 'P', creator: 'Jane', badge: 'reuse' });
+    expect(d.results[0]!.src.startsWith('data:image/png')).toBe(true);
   });
 });

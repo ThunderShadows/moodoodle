@@ -153,18 +153,17 @@ await keepViaPill('mint');
 s = await stored();
 check('second image keeps', s.length === 2 && s.some((x) => x.colorFamily === 'green'), s.map((x) => x.colorFamily).join(','));
 
-// Similar → Lens tab
+// Similar → orbit overlay on the page (closed shadow root, so check that no Lens tab opens and capture it)
 const mbox = await web.locator('#mint').boundingBox();
 await web.mouse.move(mbox.x + 180, mbox.y + 180);
 await web.waitForTimeout(150);
-const lensPage = ctx.waitForEvent('page', { timeout: 5000 }).catch(() => null);
+const lensTab = ctx.waitForEvent('page', { timeout: 2500 }).catch(() => null);
 await web.mouse.click(mbox.x + mbox.width - 120, mbox.y + 32);
-const lp = await lensPage;
-// Record the first URL the tab navigated to (Google redirects uploadbyurl to /search afterwards).
-const lensUrl = lp ? await lp.evaluate(() => performance.getEntriesByType('navigation')[0]?.name ?? location.href).catch(() => lp.url()) : '';
-const firstReq = lp ? (await lp.waitForLoadState('domcontentloaded').catch(() => {}), lp.url()) : '';
-check('Similar opens a Google Lens tab', /^https:\/\/(lens\.google\.com\/uploadbyurl\?url=|www\.google\.com\/search\?vsrid=)/.test(lensUrl || firstReq), (lensUrl || firstReq).slice(0, 90));
-if (lp) await lp.close();
+const opened = await lensTab;
+check('Similar opens the orbit on the page instead of a new tab', opened === null, opened ? opened.url() : 'no new tab');
+await web.waitForTimeout(2500);
+await web.screenshot({ path: path.join(shots, '12-orbit-page.png') });
+await web.keyboard.press('Escape');
 
 // Keep-all path (what the popup does): collect from the tab, then keep-many in the worker.
 const gallery = await ctx.newPage();
@@ -363,6 +362,25 @@ check('similar returns up to 6 of your saves, never the image itself',
   JSON.stringify({ n: sim?.results?.length, learning: sim?.learning, top: sim?.results?.[0]?.image?.imageUrl?.split('/').pop(), score: sim?.results?.[0]?.score }));
 const simNew = await popup.evaluate((u) => chrome.runtime.sendMessage({ type: 'similar', imageUrl: u }), `${base}/icon.png`);
 check('similar works for an image you have not kept', !!simNew && Array.isArray(simNew.results) && !simNew.failed, JSON.stringify({ n: simNew?.results?.length, failed: simNew?.failed }));
+
+// Orbit overlay in the gallery (same component, inspectable here)
+await gallery.reload();
+await gallery.waitForTimeout(600);
+await tiles.first().click();
+await gallery.getByRole('button', { name: 'Find similar' }).click();
+await gallery.waitForSelector('.orbit .orb', { timeout: 30000 }).catch(() => null);
+const orbCount = await gallery.locator('.orbit .orb').count();
+check('gallery Find similar shows the orbit with orbs', orbCount > 0 && orbCount <= 6, `orbs=${orbCount}`);
+await gallery.screenshot({ path: path.join(shots, '13-orbit-gallery.png') });
+await gallery.locator('.orbit .orb').first().click();
+check('clicking an orb shows its card', await gallery.locator('.orbit .card').isVisible());
+await gallery.getByRole('button', { name: 'Show in gallery' }).click();
+await gallery.waitForTimeout(400);
+check('Show in gallery closes the orbit and selects that image', (await gallery.locator('.orbit').count()) === 0 && (await gallery.locator('button.tile.on').count()) === 1);
+await gallery.getByRole('button', { name: 'Find similar' }).click();
+await gallery.waitForSelector('.orbit', { timeout: 10000 });
+await gallery.keyboard.press('Escape');
+check('Escape closes the orbit', (await gallery.locator('.orbit').count()) === 0);
 
 await ctx.close();
 server.close();
