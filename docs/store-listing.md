@@ -38,6 +38,7 @@
 - Certify: not sold to third parties; not used or transferred for purposes unrelated to the single purpose;
   not used to determine creditworthiness or for lending.
 - Third-party transfer: only when the user clicks **Open in Google Lens**, which opens Google Lens with that image's address. Find similar itself runs on the device.
+- Licensing: Plus users' license key and a device label are sent to Dodo Payments' license service to check the key (declare **Authentication information**, transferred only to verify the purchase). Checkout itself happens on Dodo's site, not in the extension.
 - Privacy policy URL: `https://thundershadows.github.io/moodoodle/privacy.html` (GitHub Pages, from `site/`; regenerate with `python3 scripts/build-privacy-page.py` after editing `docs/privacy.md`).
 
 **Wording rules:** never "scrape", "download any image" or "grab everything". No Google or Canva logos.
