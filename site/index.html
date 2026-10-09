@@ -48,12 +48,12 @@ nav.top a:hover { color: var(--ink); }
 
 /* Hero */
 .hero { padding: 72px 0 64px; }
-.hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
-@media (max-width: 920px) { .hero .wrap { grid-template-columns: 1fr; } }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+@media (max-width: 920px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); } }
 .kicker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 0 0 2px var(--line); font-weight: 600; font-size: 14px; }
 .kicker i { width: 8px; height: 8px; border-radius: 50%; background: var(--tangerine); animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.6); opacity: .5; } }
-h1 { font: 800 clamp(42px, 6.2vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 18px 0 18px; }
+h1 { font: 800 clamp(34px, 6.2vw, 76px)/1.04 var(--display); letter-spacing: -.035em; margin: 18px 0 18px; }
 h1 .scribble { position: relative; white-space: nowrap; display: inline-block; }
 h1 .scribble svg { position: absolute; left: -2%; bottom: -12px; width: 104%; height: 22px; overflow: visible; }
 h1 .scribble path { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 1.2s .6s ease forwards; }
@@ -103,7 +103,7 @@ h2 { font: 800 clamp(32px, 4.4vw, 52px)/1.05 var(--display); letter-spacing: -.0
 .head p, .copy { color: var(--ink-soft); font-size: 19px; margin: 0; }
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
 .split.rev .art { order: 2; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; gap: 40px; } .split.rev .art { order: 0; } }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); gap: 40px; } .panel { right: 0; } .cropart { margin-bottom: 36px; } .split.rev .art { order: 0; } }
 .card { background: #FFFFFF; border-radius: var(--r); box-shadow: 0 0 0 2px var(--ink), 8px 10px 0 var(--ink); }
 ul.ticks { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px; }
 ul.ticks li { position: relative; padding-left: 34px; }
@@ -176,7 +176,9 @@ ul.ticks li::before { content: ''; position: absolute; left: 0; top: 3px; width:
 .m5 { left: 40%; top: 110px; background: var(--butter); rotate: -12deg; }
 .play .mini { animation: file 4.8s ease-in-out infinite; }
 .play .m2 { animation-delay: .25s; } .play .m3 { animation-delay: .5s; } .play .m4 { animation-delay: .75s; } .play .m5 { animation-delay: 1s; }
-.m1 { --tx: 10px; --ty: 250px; } .m4 { --tx: -270px; --ty: 226px; } .m2 { --tx: 130px; --ty: 222px; } .m5 { --tx: 70px; --ty: 152px; } .m3 { --tx: 170px; --ty: 262px; }
+.boardart { container-type: inline-size; }
+.m1 { --tx: calc(7cqw - 32px); --ty: 228px; } .m2 { --tx: calc(20cqw - 32px); --ty: 198px; } .m3 { --tx: calc(33cqw - 32px); --ty: 238px; }
+.m4 { --tx: calc(-59cqw - 32px); --ty: 204px; } .m5 { --tx: calc(10cqw - 32px); --ty: 128px; }
 @keyframes file { 0%, 12% { translate: 0 0; scale: 1; opacity: 1; } 55%, 78% { translate: var(--tx) var(--ty); scale: .55; rotate: 0deg; opacity: 1; } 90% { opacity: 0; } 100% { translate: 0 0; scale: 1; opacity: 0; } }
 
 /* Orbit scene */
@@ -240,6 +242,43 @@ footer { padding: 56px 0 40px; border-top: 2px dashed var(--line); margin-top: 7
 footer .wrap { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between; }
 footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
 footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; }
+
+/* Small phones */
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  .hero { padding: 40px 0 48px; }
+  .lead { font-size: 18px; }
+  .ctas .btn { flex: 1 1 100%; }
+  .note { font-size: 19px; }
+  section.block { padding: 64px 0; }
+  .head p, .copy { font-size: 17px; }
+  .browser { transform: none; box-shadow: 0 0 0 2px var(--ink), 6px 8px 0 var(--ink); }
+  .grid4 { gap: 8px; padding: 10px; }
+  .toast { left: 10px; bottom: 10px; max-width: calc(100% - 100px); font-size: 11px; padding: 8px 10px; }
+  .jar { width: 92px; bottom: -30px; right: -4px; }
+  .pill span { padding: 4px 7px; font-size: 10px; }
+  .panel { width: 160px; right: -6px; bottom: -36px; padding: 10px; }
+  .panel .pv { height: 76px; }
+  .creditart { min-height: 0; display: grid; gap: 18px; }
+  .ctile, .scroll { position: relative; width: auto; left: auto; right: auto; top: auto; bottom: auto; }
+  .ctile { width: 86%; } .scroll { width: 92%; margin-left: auto; }
+  .boardart { height: 320px; }
+  .folder { height: 128px; padding: 46px 10px 10px; }
+  .folder b { font-size: 13px; } .folder span { font-size: 17px; }
+  .mini { width: 52px; height: 52px; }
+  .m1 { --ty: 180px; } .m2 { --ty: 150px; } .m3 { --ty: 190px; } .m4 { --ty: 156px; } .m5 { --ty: 80px; }
+  .respect .card, .price { padding: 24px; }
+  .tier { grid-template-columns: 30px 1fr auto; gap: 10px; padding: 10px 12px; }
+  .tier .n { width: 30px; height: 30px; }
+  .tier .p { font-size: 24px; }
+  .bigcta { padding: 48px 20px; }
+  footer .wrap { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 360px) {
+  .logo { font-size: 20px; } .logo svg { width: 30px; height: 30px; }
+  header.site .btn { padding: 0 12px; font-size: 13px; }
+  .tier .left { display: inline-block; margin: 4px 0 0; }
+}
 
 /* Reveal + wobble */
 .reveal { opacity: 0; translate: 0 28px; transition: opacity .7s ease, translate .7s cubic-bezier(.2,.8,.2,1); }
@@ -495,7 +534,6 @@ footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; 
           <ol class="ladder" id="ladder" aria-label="Founding price ladder">
             <li class="tier now" data-price="9" data-count="20"><span class="n">1</span><span><b>Founding 20 <span class="left" data-left>20 left</span></b><small>first 20 copies, yours for life</small></span><span class="p">$9</span><span class="meter" aria-hidden="true"><i></i></span></li>
             <li class="tier" data-price="19" data-count="60"><span class="n">2</span><span><b>Next 60</b><small>once the first 20 are gone</small></span><span class="p">$19</span></li>
-            <li class="tier"><span class="n">3</span><span><b>After that</b><small>regular price, a little higher</small></span><span class="p">later</span></li>
           </ol>
           <div class="now-price"><span class="amt" data-now>$9 <small>once, for life</small></span></div>
           <a class="btn primary" href="#install" data-cta>Get kudoodle Plus for $9</a>

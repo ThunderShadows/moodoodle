@@ -1,4 +1,4 @@
-import { selectionToFraction, type CropRect } from './crop';
+import { drawnImageRect, intersect, selectionToFraction, type Box, type CropRect } from './crop';
 
 export interface CropperHandlers {
   /** Called whenever the user finishes drawing, moving or resizing the selection. */
@@ -6,11 +6,31 @@ export interface CropperHandlers {
   onCancel(): void;
 }
 
-interface Box {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
+/** Where the picture sits on screen: `box` is the visible part, `image` the whole drawn picture. */
+export interface CropGeometry {
+  box: Box;
+  image: Box;
+}
+
+const px = (v: string) => parseFloat(v) || 0;
+const pos = (v: string) => (v.trim().endsWith('%') ? { frac: px(v) / 100 } : { px: px(v) });
+
+/** Measures where an <img> draws its picture right now (object-fit, padding and border included). */
+export function measureImage(img: HTMLImageElement): CropGeometry {
+  const r = img.getBoundingClientRect();
+  const cs = getComputedStyle(img);
+  const inset = {
+    top: px(cs.borderTopWidth) + px(cs.paddingTop), right: px(cs.borderRightWidth) + px(cs.paddingRight),
+    bottom: px(cs.borderBottomWidth) + px(cs.paddingBottom), left: px(cs.borderLeftWidth) + px(cs.paddingLeft),
+  };
+  const [ox = '50%', oy = '50%'] = (cs.objectPosition || '50% 50%').split(/\s+/);
+  const rect = { left: r.left, top: r.top, width: r.width, height: r.height };
+  const image = drawnImageRect({
+    rect, inset, natural: { width: img.naturalWidth, height: img.naturalHeight },
+    fit: cs.objectFit, position: [pos(ox), pos(oy)],
+  });
+  const content = { left: r.left + inset.left, top: r.top + inset.top, width: Math.max(1, r.width - inset.left - inset.right), height: Math.max(1, r.height - inset.top - inset.bottom) };
+  return { box: intersect(image, content), image };
 }
 
 type Corner = 'nw' | 'ne' | 'sw' | 'se';
@@ -29,14 +49,15 @@ export const cropperCss = `
 `;
 
 /** Lets the user draw, move and resize a crop box over an image on the page. */
-export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: CropperHandlers) {
+export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => CropGeometry), handlers: CropperHandlers) {
+  const measure = typeof where === 'function' ? where : () => ({ box: where, image: where });
+  let { box, image } = measure();
   const style = document.createElement('style');
   style.textContent = cropperCss;
   const layer = document.createElement('div');
   layer.className = 'crop-layer';
   const frame = document.createElement('div');
   frame.className = 'crop-frame';
-  Object.assign(frame.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
   const sel = document.createElement('div');
   sel.className = 'crop-sel';
   sel.hidden = true;
@@ -48,8 +69,6 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
   }
   const bar = document.createElement('div');
   bar.className = 'crop-bar';
-  bar.style.left = `${box.left}px`;
-  bar.style.top = `${Math.max(8, box.top - 48)}px`;
   const hint = document.createElement('span');
   hint.textContent = 'Drag over the part you want';
   const cancel = document.createElement('button');
@@ -65,6 +84,26 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
   let selectedHint = 'Edit and keep it in the kudoodle panel →';
   let rect: { x1: number; y1: number; x2: number; y2: number } | undefined;
   let mode: { kind: 'new' | 'resize'; fx: number; fy: number } | { kind: 'move'; sx: number; sy: number; start: NonNullable<typeof rect> } | undefined;
+
+  function place() {
+    Object.assign(frame.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+    bar.style.left = `${box.left}px`;
+    bar.style.top = `${Math.max(8, box.top - 48)}px`;
+  }
+  place();
+
+  // Opening the side panel (or any resize) moves the image: follow it and keep the selection on the same spot.
+  function onResize() {
+    const old = image;
+    ({ box, image } = measure());
+    if (rect) {
+      const mx = (x: number) => image.left + ((x - old.left) / old.width) * image.width;
+      const my = (y: number) => image.top + ((y - old.top) / old.height) * image.height;
+      rect = { x1: mx(rect.x1), y1: my(rect.y1), x2: mx(rect.x2), y2: my(rect.y2) };
+    }
+    place();
+    paint();
+  }
 
   function paint() {
     if (!rect) { sel.hidden = true; return; }
@@ -110,7 +149,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
     if (!mode || !rect) return;
     const wasNew = mode.kind === 'new';
     mode = undefined;
-    const frac = selectionToFraction({ x: rect.x1, y: rect.y1 }, { x: rect.x2, y: rect.y2 }, box);
+    const frac = selectionToFraction({ x: rect.x1, y: rect.y1 }, { x: rect.x2, y: rect.y2 }, box, image);
     if (frac) {
       hint.textContent = selectedHint;
       handlers.onSelect(frac);
@@ -134,6 +173,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
   document.addEventListener('keydown', onKey, true);
+  window.addEventListener('resize', onResize);
   layer.addEventListener('wheel', stopWheel, { passive: false });
   cancel.addEventListener('click', () => { close(); handlers.onCancel(); });
 
@@ -141,6 +181,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', onResize);
     layer.remove();
     style.remove();
   }

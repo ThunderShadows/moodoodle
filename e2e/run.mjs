@@ -74,6 +74,7 @@ const server = http.createServer((req, res) => {
   if (url === '/credited') return res.writeHead(200, { 'content-type': 'text/html' }).end(`<!doctype html><html><head><title>Mint study</title>
 <script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'ImageObject', contentUrl: `http://${req.headers.host}/credited.png`, name: 'Mint study', creator: { '@type': 'Person', name: 'Jane Doe', url: 'https://example.com/jane' }, license: 'https://creativecommons.org/licenses/by/4.0/' })}</script>
 </head><body style="margin:40px"><img id="credited" src="/credited.png" width="360" height="360"></body></html>`);
+  if (url === '/cover') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><head><title>Cover</title></head><body style="margin:40px 0"><img id="cover" src="/peach.png" style="display:block;margin:0 auto;width:400px;height:200px;object-fit:cover"></body></html>');
   if (url === '/noai') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><head><title>No AI</title><meta name="robots" content="noai, noimageai"></head><body style="margin:40px"><img src="/sun-noai.png" width="300" height="300"><img src="/heart2.png" width="300" height="300"></body></html>');
   if (url === '/sun-noai.png' || url === '/heart2.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(files['/peach.png']);
   // Simulated hotlink protection: only serve when the page itself is the referrer.
@@ -401,6 +402,12 @@ await panel.waitForSelector('.preview img', { timeout: 15000 }).catch(() => null
 check('side panel shows the selected crop', (await panel.locator('.preview img').count()) === 1 && (await panel.getByText('SELECTED').isVisible()));
 await panel.getByRole('button', { name: 'Rotate right' }).click();
 await panel.getByRole('button', { name: /B&W/ }).click();
+await panel.waitForTimeout(400);
+const fits = await panel.evaluate(() => {
+  const box = document.querySelector('.preview').getBoundingClientRect(), img = document.querySelector('.preview img').getBoundingClientRect();
+  return img.top >= box.top - 1 && img.bottom <= box.bottom + 1 && img.left >= box.left - 1 && img.right <= box.right + 1;
+});
+check('rotated crop preview fits inside the edit box', fits);
 await panel.screenshot({ path: path.join(shots, '15-side-panel.png') });
 await panel.getByRole('button', { name: /Keep crop/ }).click();
 await panel.waitForTimeout(1200);
@@ -413,6 +420,30 @@ const cropRec = await sw.evaluate(async () => {
   return c ? { url: c.imageUrl.split('/').pop(), w: c.width, h: c.height, edits: c.edits, crop: c.crop } : null;
 });
 check('crop is saved as its own image, rotated (taller than wide), with its edits', !!cropRec && cropRec.h > cropRec.w && cropRec.edits?.rotate === 90 && cropRec.edits?.grayscale === true, JSON.stringify(cropRec));
+
+// object-fit: cover shows only the middle of the picture; the crop must match what was on screen,
+// even after the page gets narrower while cropping (as when the side panel opens).
+await web.goto(`${base}/cover`);
+await web.waitForTimeout(500);
+let vbox = await web.locator('#cover').boundingBox();
+await web.mouse.move(vbox.x + vbox.width / 2, vbox.y + vbox.height / 2);
+await web.waitForTimeout(150);
+await web.mouse.click(vbox.x + vbox.width - 120, vbox.y + 32);
+await web.waitForTimeout(300);
+await web.setViewportSize({ width: 900, height: 860 });
+await web.waitForTimeout(300);
+vbox = await web.locator('#cover').boundingBox();
+await web.mouse.move(vbox.x + 2, vbox.y + 2);
+await web.mouse.down();
+await web.mouse.move(vbox.x + vbox.width / 2, vbox.y + vbox.height - 2, { steps: 5 });
+await web.mouse.up();
+await web.waitForTimeout(400);
+const coverCrop = await sw.evaluate(async () => (await chrome.storage.session.get('pendingCrop')).pendingCrop?.crop);
+const near = (a, b) => Math.abs(a - b) < 0.02;
+check('crop matches what is on screen with object-fit: cover, after the page resizes',
+  !!coverCrop && near(coverCrop.x, 0) && near(coverCrop.y, 0.25) && near(coverCrop.w, 0.5) && near(coverCrop.h, 0.5), JSON.stringify(coverCrop));
+await web.keyboard.press('Escape');
+await web.setViewportSize({ width: 1280, height: 860 });
 
 // Fallback when Chrome won't open the side panel from a page click: the popup offers it.
 await popup.evaluate(async () => {

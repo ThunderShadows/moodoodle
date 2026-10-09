@@ -133,11 +133,11 @@
   .mini { height: 40px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--ink); color: #FFFFFF; font-weight: 600; cursor: pointer; }
   .mini.ghost { background: transparent; color: var(--ink); border: 2px solid var(--line); }
   .err { flex-basis: 100%; font-size: 13px; color: #A3322A; }
-  .new { margin-top: 8px; min-height: 44px; border: 2px dashed #CFC6DD; border-radius: 999px; background: transparent; font-weight: 600; color: #4A4256; cursor: pointer; }
+  .new { margin-top: 8px; min-height: 44px; border: 2px dashed #E2CDB8; border-radius: 999px; background: transparent; font-weight: 600; color: #5A4436; cursor: pointer; }
   .quota { display: flex; align-items: center; gap: 8px; padding: 10px 12px 0; font-size: 13px; color: var(--muted); }
   .meter { display: flex; gap: 4px; }
   .meter span { width: 18px; height: 6px; border-radius: 3px; background: var(--line); }
   .meter span.fill { background: var(--ink); }
-  .limit { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); font-size: 14px; color: #4A4256; }
+  .limit { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); font-size: 14px; color: #5A4436; }
   .limit .hand { font-family: var(--hand); font-size: 22px; color: var(--ink); }
 </style>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectionToFraction, toPixelRect, cropUrl, parseCropUrl, baseImageUrl } from './crop';
+import { selectionToFraction, toPixelRect, cropUrl, parseCropUrl, baseImageUrl, drawnImageRect, intersect } from './crop';
 
 const box = { left: 100, top: 50, width: 400, height: 200 };
 
@@ -34,5 +34,34 @@ describe('cropUrl', () => {
   it('treats ordinary addresses as uncropped', () => {
     expect(parseCropUrl('https://x.com/a.png#top')).toBeUndefined();
     expect(baseImageUrl('https://x.com/a.png')).toBe('https://x.com/a.png');
+  });
+});
+
+describe('drawnImageRect', () => {
+  const base = { rect: { left: 0, top: 0, width: 200, height: 200 }, inset: { top: 0, right: 0, bottom: 0, left: 0 }, natural: { width: 400, height: 200 } };
+  const center = [{ frac: 0.5 }, { frac: 0.5 }] as [{ frac: number }, { frac: number }];
+
+  it('stretches the picture over the box by default (fill)', () => {
+    expect(drawnImageRect({ ...base, fit: 'fill', position: center })).toEqual({ left: 0, top: 0, width: 200, height: 200 });
+  });
+  it('letterboxes with contain', () => {
+    expect(drawnImageRect({ ...base, fit: 'contain', position: center })).toEqual({ left: 0, top: 50, width: 200, height: 100 });
+  });
+  it('overflows the box with cover, centred by object-position', () => {
+    expect(drawnImageRect({ ...base, fit: 'cover', position: center })).toEqual({ left: -100, top: 0, width: 400, height: 200 });
+    expect(drawnImageRect({ ...base, fit: 'cover', position: [{ frac: 0 }, { frac: 0 }] })).toEqual({ left: 0, top: 0, width: 400, height: 200 });
+  });
+  it('subtracts padding and border', () => {
+    const r = drawnImageRect({ ...base, inset: { top: 10, right: 10, bottom: 10, left: 10 }, fit: 'fill', position: center });
+    expect(r).toEqual({ left: 10, top: 10, width: 180, height: 180 });
+  });
+});
+
+describe('selectionToFraction with object-fit: cover', () => {
+  it('measures the drag against the whole picture, not the visible box', () => {
+    const image = { left: -100, top: 0, width: 400, height: 200 };
+    const box = intersect(image, { left: 0, top: 0, width: 200, height: 200 });
+    // Dragging over the whole visible square selects the middle half of the wide picture.
+    expect(selectionToFraction({ x: 0, y: 0 }, { x: 200, y: 200 }, box, image)).toEqual({ x: 0.25, y: 0, w: 0.5, h: 1 });
   });
 });

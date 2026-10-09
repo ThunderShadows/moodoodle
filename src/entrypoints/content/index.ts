@@ -3,7 +3,7 @@ import { isBigEnough, pickBestSrc, collectImageUrls } from '@/lib/pick';
 import { toastText } from '@/lib/toast';
 import { extractPageCredit } from '@/lib/pagecredit';
 import { openOrbit } from '@/lib/orbit';
-import { openCropper } from '@/lib/cropui';
+import { measureImage, openCropper } from '@/lib/cropui';
 import { toOrbitData, type SimilarResult } from '@/lib/findsimilar';
 import { lensUrl } from '@/lib/urls';
 import type { CollectResult, KeepResult, Message } from '@/lib/types';
@@ -114,7 +114,7 @@ export default defineContentScript({
         pageCredit: extractPageCredit(document, src),
       };
       const opened = browser.runtime.sendMessage(start) as Promise<{ panel?: boolean } | undefined>;
-      cropper = openCropper(root, img.getBoundingClientRect(), {
+      cropper = openCropper(root, () => measureImage(img), {
         onSelect: (crop) => {
           const msg: Message = { type: 'crop-selected', crop };
           browser.runtime.sendMessage(msg);

@@ -23,17 +23,22 @@
   const badge = $derived(badgeFor(parseLicense(credit?.jsonLd?.license ?? credit?.relLicense)));
   const pct = (n: number) => `${Math.round(n * 100)}%`;
 
+  // Reselecting quickly starts several previews; only the newest one may be shown.
+  let previewSeq = 0;
   async function refreshPreview() {
-    if (!pending?.crop) { preview = null; return; }
+    const seq = ++previewSeq;
+    if (!pending?.crop) { preview = null; loadingPreview = false; return; }
     loadingPreview = true;
+    let next: string | null = null;
     try {
       const msg: Message = { type: 'crop-preview' };
-      preview = (await browser.runtime.sendMessage(msg)) as string | null;
+      next = (await browser.runtime.sendMessage(msg)) as string | null;
     } catch {
-      preview = null;
-    } finally {
-      loadingPreview = false;
+      next = null;
     }
+    if (seq !== previewSeq) return;
+    preview = next;
+    loadingPreview = false;
   }
 
   async function loadPending() {
@@ -97,7 +102,7 @@
       <div class="title"><span class="num">2</span>Edit</div>
       <div class="preview">
         {#if preview}
-          <img src={preview} alt="Your crop" style="filter: {cssFilter(edits)}; transform: {cssTransform(edits)}" />
+          <img src={preview} alt="Your crop" class:sideways={edits.rotate % 180 !== 0} style="filter: {cssFilter(edits)}; transform: {cssTransform(edits)}" />
         {:else}
           <span class="muted">{loadingPreview ? 'Loading your crop…' : 'Your crop will show here'}</span>
         {/if}
@@ -151,7 +156,10 @@
   .muted { color: var(--muted); font-size: 12px; }
   .small { font-size: 12px; }
   .preview { height: 190px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .preview img { max-width: 86%; max-height: 86%; border-radius: 8px; transition: transform .2s ease; }
+  .preview { container-type: size; }
+  .preview img { max-width: 86cqw; max-height: 86cqh; border-radius: 8px; transition: transform .2s ease; }
+  /* Turned sideways, the picture's width becomes its height: swap the limits so it still fits. */
+  .preview img.sideways { max-width: 86cqh; max-height: 86cqw; }
   .tools { display: flex; gap: 6px; flex-wrap: wrap; }
   .tool { height: 40px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--card); box-shadow: 0 0 0 1px var(--line); font-weight: 600; cursor: pointer; }
   .tool.on { background: var(--ink); color: #FFFFFF; }
@@ -164,6 +172,6 @@
   .status { margin: 0; font-size: 14px; }
   .keep { height: 52px; border: 0; border-radius: 16px; background: var(--ink); color: #FFFFFF; font-size: 16px; font-weight: 700; cursor: pointer; }
   .keep:disabled { opacity: .5; cursor: default; }
-  .whole { height: 40px; border: 0; border-radius: 12px; background: transparent; font-weight: 600; color: #4A4256; cursor: pointer; }
+  .whole { height: 40px; border: 0; border-radius: 12px; background: transparent; font-weight: 600; color: #5A4436; cursor: pointer; }
   .whole:disabled { opacity: .5; }
 </style>

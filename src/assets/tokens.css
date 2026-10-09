@@ -1,6 +1,6 @@
 :root {
-  --ground: #F7F5FB; --ink: #2A2433; --muted: #6E6578; --line: #E7E1F2;
-  --accent: #FFB58F; --focus: #5B3FB0; --card: #FFFFFF;
+  --ground: #FFF6EA; --ink: #3B2A20; --muted: #6B5446; --line: #EAD9C6;
+  --accent: #F08A4B; --focus: #C2571C; --card: #FFFFFF; --peach: #FFD3B8; --butter: #FFE9A8;
   --display: 'Bricolage Grotesque', system-ui, sans-serif;
   --body: 'Figtree', system-ui, sans-serif;
   --hand: 'Caveat', cursive;
@@ -17,5 +17,8 @@ button, input { font: inherit; color: inherit; }
 .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .badge.reuse { background: #CDEFD9; color: #1F5C3D; }
 .badge.conditions { background: #FFE7C7; color: #7A4A00; }
-.badge.reference { background: #ECE8F3; color: #4A4256; }
-.badge.noai { background: #2A2433; color: #FFFFFF; }
+.badge.reference { background: #F3E7DA; color: #5A4436; }
+.badge.noai { background: #3B2A20; color: #FFFFFF; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

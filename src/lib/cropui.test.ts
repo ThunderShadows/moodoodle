@@ -20,6 +20,27 @@ function drag(from: [number, number], to: [number, number], start: EventTarget) 
 }
 
 describe('openCropper', () => {
+  it('follows the image when the page resizes (side panel opening) and keeps the same crop', () => {
+    const onSelect = vi.fn();
+    let geo = { box, image: box };
+    openCropper(host, () => geo, { onSelect, onCancel: vi.fn() });
+    drag([150, 100], [300, 150], host.querySelector('.crop-layer')!);
+    const first = onSelect.mock.lastCall![0];
+    // The panel narrows the page: the image shrinks to half size and moves left.
+    const small = { left: 20, top: 40, width: 200, height: 100 };
+    geo = { box: small, image: small };
+    window.dispatchEvent(new Event('resize'));
+    const frame = host.querySelector<HTMLElement>('.crop-frame')!;
+    expect(frame.style.left).toBe('20px');
+    expect(frame.style.width).toBe('200px');
+    const sel = host.querySelector<HTMLElement>('.crop-sel')!;
+    expect(sel.style.left).toBe('45px');
+    expect(sel.style.width).toBe('75px');
+    // Moving the selection afterwards is measured against the new position.
+    drag([50, 60], [50, 60], sel);
+    expect(onSelect).toHaveBeenLastCalledWith(first);
+  });
+
   it('turns a drag over the image into a crop selection', () => {
     const onSelect = vi.fn();
     openCropper(host, box, { onSelect, onCancel: vi.fn() });

@@ -111,6 +111,6 @@
   .src { font-weight: 400; color: var(--muted); }
   input { height: 40px; padding: 0 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--ground); }
   .row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
-  .row a { font-size: 14px; font-weight: 600; color: #5B3FB0; }
+  .row a { font-size: 14px; font-weight: 600; color: #C2571C; }
   .save { margin-left: auto; height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--ink); color: #FFFFFF; font-weight: 600; cursor: pointer; }
 </style>

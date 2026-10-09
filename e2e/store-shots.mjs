@@ -173,11 +173,11 @@ async function frame(file, title, note, shot, { width = 1000, side = false } = {
     @font-face{font-family:D;src:url(data:font/woff2;base64,${fonts.display})}
     @font-face{font-family:B;src:url(data:font/woff2;base64,${fonts.body})}
     @font-face{font-family:H;src:url(data:font/woff2;base64,${fonts.hand})}
-    body{margin:0;width:1280px;height:800px;background:#F7F5FB;color:#2A2433;overflow:hidden;font-family:B}
+    body{margin:0;width:1280px;height:800px;background:#FFEFDC;color:#3B2A20;overflow:hidden;font-family:B}
     .wrap{height:100%;display:flex;flex-direction:${side ? 'row' : 'column'};align-items:center;justify-content:center;gap:${side ? 72 : 24}px;padding:36px;box-sizing:border-box}
     .cap{display:flex;flex-direction:column;gap:4px;${side ? 'max-width:440px' : 'align-items:center;text-align:center'}}
     h1{font-family:D;font-size:${side ? 52 : 40}px;letter-spacing:-.02em;line-height:1.05;margin:0}
-    .note{font-family:H;font-size:28px;color:#6E6578}
+    .note{font-family:H;font-size:28px;color:#C2571C}
     img{width:${width}px;max-height:${side ? 700 : 600}px;object-fit:cover;object-position:top;border-radius:22px;box-shadow:0 0 0 1px #E7E1F2,0 24px 60px rgba(42,36,51,.16);display:block}
   </style></head><body><div class="wrap"><div class="cap"><h1>${title}</h1><span class="note">${note}</span></div><img src="${img}"></div></body></html>`);
   await framer.waitForTimeout(300);
