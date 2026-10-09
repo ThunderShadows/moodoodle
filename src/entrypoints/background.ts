@@ -1,16 +1,17 @@
 import { browser } from 'wxt/browser';
 import { openImageStore } from '@/lib/db';
 import { keepImage, keepMany, type KeepDeps } from '@/lib/keep';
-import { fetchImage, decodeInWorker } from '@/lib/decode';
+import { fetchImage, decodeInWorker, cropInWorker } from '@/lib/decode';
+import { blobToDataUrl } from '@/lib/findsimilar';
 import { lensUrl } from '@/lib/urls';
 import { registerMenus } from '@/lib/menus';
 import { resolveKeepingInto } from '@/lib/settings';
 import { createQueue } from '@/lib/queue';
 import { findSimilar } from '@/lib/findsimilar';
-import type { KeepResult, Message, OffscreenMessage, PageCredit } from '@/lib/types';
+import type { KeepResult, Message, OffscreenMessage, PageCredit, PendingCrop } from '@/lib/types';
 
 export default defineBackground(() => {
-  const deps: KeepDeps = { store: openImageStore(), fetchImage, decode: decodeInWorker };
+  const deps: KeepDeps = { store: openImageStore(), fetchImage, decode: decodeInWorker, crop: cropInWorker };
 
   // ── On-device image model (runs in an offscreen document) ──
   let creating: Promise<void> | undefined;
@@ -52,6 +53,55 @@ export default defineBackground(() => {
     const url = lensUrl(imageUrl);
     if (url) await browser.tabs.create({ url });
     return Boolean(url);
+  }
+
+  // ── Crop & edit (selection on the page, editing in the side panel) ──
+  const PENDING = 'pendingCrop';
+  const getPending = async () => (await browser.storage.session.get(PENDING))[PENDING] as PendingCrop | undefined;
+  const setPending = (p: PendingCrop | undefined) =>
+    p ? browser.storage.session.set({ [PENDING]: p }) : browser.storage.session.remove(PENDING);
+
+  async function handleCrop(msg: Message, tabId: number | undefined): Promise<unknown> {
+    switch (msg.type) {
+      case 'crop-start': {
+        if (tabId === undefined) return false;
+        await setPending({ tabId, imageUrl: msg.imageUrl, pageUrl: msg.pageUrl, pageTitle: msg.pageTitle, pageCredit: msg.pageCredit });
+        // Opening needs the user's click; the Crop click that sent this message provides it.
+        await browser.sidePanel.open({ tabId }).catch(() => {});
+        return true;
+      }
+      case 'crop-selected': {
+        const p = await getPending();
+        if (p) await setPending({ ...p, crop: msg.crop });
+        return true;
+      }
+      case 'crop-cancel':
+        await setPending(undefined);
+        return true;
+      case 'crop-preview': {
+        const p = await getPending();
+        if (!p?.crop) return null;
+        const { blob } = await fetchImage(p.imageUrl);
+        return blobToDataUrl(await cropInWorker(blob, p.crop, undefined, 720));
+      }
+      case 'crop-keep': {
+        const p = await getPending();
+        if (!p) return { status: 'error', reason: 'unsupported-url' };
+        const board = msg.boardId ? await deps.store.getBoard(msg.boardId) : undefined;
+        const result = afterKeep(await keepImage(deps, {
+          imageUrl: p.imageUrl, pageUrl: p.pageUrl, pageTitle: p.pageTitle, pageCredit: p.pageCredit,
+          crop: msg.whole ? undefined : p.crop, edits: msg.whole ? undefined : msg.edits, board,
+        }));
+        const toast: Message = { type: 'toast', result };
+        const done: Message = { type: 'crop-done' };
+        browser.tabs.sendMessage(p.tabId, toast).catch(() => {});
+        browser.tabs.sendMessage(p.tabId, done).catch(() => {});
+        if (result.status !== 'error') await setPending(undefined);
+        return result;
+      }
+      default:
+        return undefined;
+    }
   }
 
   async function handle(msg: Message): Promise<unknown> {
@@ -113,8 +163,9 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as Message;
-    if (msg.type !== 'keep' && msg.type !== 'keep-many' && msg.type !== 'lens' && msg.type !== 'similar' && msg.type !== 'open-gallery') return false;
-    handle(msg).then(sendResponse, () => sendResponse({ status: 'error', reason: 'fetch-failed' }));
+    if (msg.type !== 'keep' && msg.type !== 'keep-many' && msg.type !== 'lens' && msg.type !== 'similar' && msg.type !== 'open-gallery' && !msg.type.startsWith('crop-')) return false;
+    const work = msg.type.startsWith('crop-') ? handleCrop(msg, _sender.tab?.id) : handle(msg);
+    work.then(sendResponse, () => sendResponse({ status: 'error', reason: 'fetch-failed' }));
     return true;
   });
 });

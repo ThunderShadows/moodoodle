@@ -5,7 +5,7 @@ export const css = `
 button { height: 44px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer;
   font: inherit; box-shadow: 0 4px 14px rgba(42,36,51,.22); }
 button:focus-visible { outline: 3px solid #5B3FB0; outline-offset: 2px; }
-.sim { background: #FFFFFF; color: #2A2433; }
+.crop { background: #FFB58F; color: #2A2433; }
 .keep { background: #2A2433; color: #FFFFFF; }
 .keep:disabled { opacity: .6; cursor: progress; }
 .toast { position: fixed; z-index: 2147483647; right: 24px; bottom: 24px; max-width: 360px;

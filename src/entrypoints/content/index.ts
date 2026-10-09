@@ -3,6 +3,7 @@ import { isBigEnough, pickBestSrc, collectImageUrls } from '@/lib/pick';
 import { toastText } from '@/lib/toast';
 import { extractPageCredit } from '@/lib/pagecredit';
 import { openOrbit } from '@/lib/orbit';
+import { openCropper } from '@/lib/cropui';
 import { toOrbitData, type SimilarResult } from '@/lib/findsimilar';
 import { lensUrl } from '@/lib/urls';
 import type { CollectResult, KeepResult, Message } from '@/lib/types';
@@ -15,14 +16,14 @@ export default defineContentScript({
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>${css}</style>
       <div class="bar" hidden>
-        <button class="sim" type="button">Similar</button>
+        <button class="crop" type="button">Crop</button>
         <button class="keep" type="button">Keep</button>
       </div>
       <div class="toast" role="status" aria-live="polite" hidden></div>`;
     document.documentElement.append(host);
 
     const bar = root.querySelector<HTMLDivElement>('.bar')!;
-    const simBtn = root.querySelector<HTMLButtonElement>('.sim')!;
+    const cropBtn = root.querySelector<HTMLButtonElement>('.crop')!;
     const keepBtn = root.querySelector<HTMLButtonElement>('.keep')!;
     const toast = root.querySelector<HTMLDivElement>('.toast')!;
     let current: HTMLImageElement | null = null;
@@ -100,15 +101,37 @@ export default defineContentScript({
       }
     }
 
-    simBtn.addEventListener('click', () => {
-      const src = current && pickBestSrc(current);
-      if (src) showSimilar(src);
+    // Crop: select part of the image here; edit and keep it in the moodoodle side panel.
+    let cropper: ReturnType<typeof openCropper> | undefined;
+    cropBtn.addEventListener('click', () => {
+      const img = current;
+      const src = img && pickBestSrc(img);
+      if (!img || !src) return;
+      bar.hidden = true;
+      cropper?.close();
+      const start: Message = {
+        type: 'crop-start', imageUrl: src, pageUrl: location.href, pageTitle: document.title,
+        pageCredit: extractPageCredit(document, src),
+      };
+      browser.runtime.sendMessage(start);
+      cropper = openCropper(root, img.getBoundingClientRect(), {
+        onSelect: (crop) => {
+          const msg: Message = { type: 'crop-selected', crop };
+          browser.runtime.sendMessage(msg);
+        },
+        onCancel: () => {
+          cropper = undefined;
+          const msg: Message = { type: 'crop-cancel' };
+          browser.runtime.sendMessage(msg);
+        },
+      });
     });
 
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as Message;
       if (msg.type === 'toast') showToast(toastText(msg.result));
       if (msg.type === 'show-similar') showSimilar(msg.imageUrl);
+      if (msg.type === 'crop-done') { cropper?.close(); cropper = undefined; }
       if (msg.type === 'credit-for') sendResponse(extractPageCredit(document, msg.imageUrl));
       if (msg.type === 'collect-images') {
         const urls = collectImageUrls(document);

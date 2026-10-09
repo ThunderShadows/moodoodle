@@ -12,6 +12,7 @@
 > • Hover any image and press **Keep**, or right-click → **Keep image**
 > • Every keep remembers where it came from, plus its color palette
 > • Search your collection by site, tag or color
+> • **Crop** keeps just the part of an image you want, with simple edits (rotate, flip, brightness, B&W) in a side panel
 > • **Find similar** shows look-alikes from your own saves in a little orbit, matched on your device
 > • Every keep records the artist and license where the page says, and exports include a CREDITS.md
 > • Make boards for your projects and choose the board new keeps go into
@@ -25,6 +26,7 @@
 - `contextMenus`: adds "Keep image" and "Find similar" to the right-click menu on images.
 - `unlimitedStorage`: your collection is stored locally and can grow past the default quota.
 - `storage`: remembers small settings on your device, such as which board new keeps go into.
+- `sidePanel`: the Crop & keep panel opens beside the page so you can edit a crop while you browse.
 - `offscreen`: runs the bundled on-device image model for Find similar in a hidden extension page (it can't run in the background service worker). Nothing is sent anywhere.
 
 **Content security policy:** `'wasm-unsafe-eval'` is needed only to run the bundled WebAssembly image model. No remote code is loaded; the model and runtime ship in the package (~50 MB).

@@ -87,6 +87,12 @@ export type Message =
   | { type: 'similar'; imageUrl: string }
   | { type: 'show-similar'; imageUrl: string }
   | { type: 'open-gallery'; focus?: string }
+  | { type: 'crop-start'; imageUrl: string; pageUrl: string; pageTitle: string; pageCredit?: PageCredit }
+  | { type: 'crop-selected'; crop: import('./crop').CropRect }
+  | { type: 'crop-cancel' }
+  | { type: 'crop-preview' }
+  | { type: 'crop-keep'; edits: import('./edits').Edits; boardId: string | null; whole?: boolean }
+  | { type: 'crop-done' }
   | { type: 'lens'; imageUrl: string }
   | { type: 'collect-images' }
   | { type: 'toast'; result: KeepResult };
@@ -128,3 +134,13 @@ export interface CollectResult {
 export type OffscreenMessage =
   | { target: 'offscreen'; type: 'embed-image'; id: string }
   | { target: 'offscreen'; type: 'embed-url'; url: string };
+
+/** The crop the user is working on (kept in session storage so the side panel can show it). */
+export interface PendingCrop {
+  tabId: number;
+  imageUrl: string;
+  pageUrl: string;
+  pageTitle: string;
+  pageCredit?: PageCredit;
+  crop?: import('./crop').CropRect;
+}

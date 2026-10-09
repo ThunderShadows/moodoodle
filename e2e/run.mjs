@@ -153,14 +153,12 @@ await keepViaPill('mint');
 s = await stored();
 check('second image keeps', s.length === 2 && s.some((x) => x.colorFamily === 'green'), s.map((x) => x.colorFamily).join(','));
 
-// Similar → orbit overlay on the page (closed shadow root, so check that no Lens tab opens and capture it)
-const mbox = await web.locator('#mint').boundingBox();
-await web.mouse.move(mbox.x + 180, mbox.y + 180);
-await web.waitForTimeout(150);
+// Find similar on the page (what the right-click menu does): the orbit opens in place, no new tab
 const lensTab = ctx.waitForEvent('page', { timeout: 2500 }).catch(() => null);
-await web.mouse.click(mbox.x + mbox.width - 120, mbox.y + 32);
+const pageTabIdForSimilar = await sw.evaluate(async (u) => (await chrome.tabs.query({ url: u }))[0].id, `${base}/page.html`);
+await sw.evaluate(([id, url]) => chrome.tabs.sendMessage(id, { type: 'show-similar', imageUrl: url }), [pageTabIdForSimilar, `${base}/mint.png`]);
 const opened = await lensTab;
-check('Similar opens the orbit on the page instead of a new tab', opened === null, opened ? opened.url() : 'no new tab');
+check('Find similar opens the orbit on the page instead of a new tab', opened === null, opened ? opened.url() : 'no new tab');
 await web.waitForTimeout(2500);
 await web.screenshot({ path: path.join(shots, '12-orbit-page.png') });
 await web.keyboard.press('Escape');
@@ -381,6 +379,40 @@ await gallery.getByRole('button', { name: 'Find similar' }).click();
 await gallery.waitForSelector('.orbit', { timeout: 10000 });
 await gallery.keyboard.press('Escape');
 check('Escape closes the orbit', (await gallery.locator('.orbit').count()) === 0);
+
+// ── Crop & edit (select on the page, keep from the side panel) ──
+await web.goto(`${base}/page.html`);
+await web.waitForTimeout(500);
+const cbox = await web.locator('#peach').boundingBox();
+await web.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2);
+await web.waitForTimeout(150);
+await web.mouse.click(cbox.x + cbox.width - 120, cbox.y + 32); // Crop is left of Keep on the pill
+await web.waitForTimeout(300);
+await web.mouse.move(cbox.x + 20, cbox.y + 20);
+await web.mouse.down();
+await web.mouse.move(cbox.x + 220, cbox.y + 120, { steps: 5 });
+await web.mouse.up();
+await web.waitForTimeout(400);
+await web.screenshot({ path: path.join(shots, '14-crop-select.png') });
+const panel = await ctx.newPage();
+await panel.setViewportSize({ width: 400, height: 860 });
+await panel.goto(`chrome-extension://${extId}/sidepanel.html`);
+await panel.waitForSelector('.preview img', { timeout: 15000 }).catch(() => null);
+check('side panel shows the selected crop', (await panel.locator('.preview img').count()) === 1 && (await panel.getByText('SELECTED').isVisible()));
+await panel.getByRole('button', { name: 'Rotate right' }).click();
+await panel.getByRole('button', { name: /B&W/ }).click();
+await panel.screenshot({ path: path.join(shots, '15-side-panel.png') });
+await panel.getByRole('button', { name: /Keep crop/ }).click();
+await panel.waitForTimeout(1200);
+check('Keep crop confirms in the panel', /Kept/.test(await panel.locator('.status').innerText().catch(() => '')));
+const cropRec = await sw.evaluate(async () => {
+  const db = await new Promise((res) => { const r = indexedDB.open('moodoodle'); r.onsuccess = () => res(r.result); });
+  const all = await new Promise((res) => { const r = db.transaction('images').objectStore('images').getAll(); r.onsuccess = () => res(r.result); });
+  db.close();
+  const c = all.find((i) => i.imageUrl.includes('#moodoodle-crop='));
+  return c ? { url: c.imageUrl.split('/').pop(), w: c.width, h: c.height, edits: c.edits, crop: c.crop } : null;
+});
+check('crop is saved as its own image, rotated (taller than wide), with its edits', !!cropRec && cropRec.h > cropRec.w && cropRec.edits?.rotate === 90 && cropRec.edits?.grayscale === true, JSON.stringify(cropRec));
 
 await ctx.close();
 server.close();

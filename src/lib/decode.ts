@@ -1,4 +1,6 @@
 import type { Decoded } from './keep';
+import { toPixelRect, type CropRect } from './crop';
+import { NO_EDITS, cssFilter, outputSize, type Edits } from './edits';
 
 export async function fetchImage(url: string): Promise<{ blob: Blob; robots?: string }> {
   const res = await fetch(url, { credentials: 'omit' });
@@ -35,4 +37,31 @@ async function makeThumb(bmp: ImageBitmap): Promise<Blob | undefined> {
   if (!ctx) return undefined;
   ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
   return canvas.convertToBlob({ type: 'image/webp', quality: 0.82 });
+}
+
+/**
+ * Cuts `rect` out of an image and applies edits, at full resolution (worker-only: OffscreenCanvas).
+ * `maxSide` shrinks the result for previews.
+ */
+export async function cropInWorker(blob: Blob, rect: CropRect, edits: Edits = NO_EDITS, maxSide?: number): Promise<Blob> {
+  const full = await createImageBitmap(blob);
+  const { sx, sy, sw, sh } = toPixelRect(rect, full.width, full.height);
+  full.close();
+  const scale = maxSide ? Math.min(1, maxSide / Math.max(sw, sh)) : 1;
+  const w = Math.max(1, Math.round(sw * scale)), h = Math.max(1, Math.round(sh * scale));
+  const part = await createImageBitmap(blob, sx, sy, sw, sh, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
+  try {
+    const out = outputSize(w, h, edits.rotate);
+    const canvas = new OffscreenCanvas(out.width, out.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    ctx.filter = cssFilter(edits);
+    ctx.translate(out.width / 2, out.height / 2);
+    ctx.rotate((edits.rotate * Math.PI) / 180);
+    ctx.scale(edits.flipH ? -1 : 1, edits.flipV ? -1 : 1);
+    ctx.drawImage(part, -w / 2, -h / 2, w, h);
+    return await canvas.convertToBlob({ type: 'image/png' });
+  } finally {
+    part.close();
+  }
 }
