@@ -62,6 +62,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
 
   const clampX = (x: number) => Math.min(box.left + box.width, Math.max(box.left, x));
   const clampY = (y: number) => Math.min(box.top + box.height, Math.max(box.top, y));
+  let selectedHint = 'Edit and keep it in the moodoodle panel →';
   let rect: { x1: number; y1: number; x2: number; y2: number } | undefined;
   let mode: { kind: 'new' | 'resize'; fx: number; fy: number } | { kind: 'move'; sx: number; sy: number; start: NonNullable<typeof rect> } | undefined;
 
@@ -111,7 +112,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
     mode = undefined;
     const frac = selectionToFraction({ x: rect.x1, y: rect.y1 }, { x: rect.x2, y: rect.y2 }, box);
     if (frac) {
-      hint.textContent = 'Edit and keep it in the moodoodle panel →';
+      hint.textContent = selectedHint;
       handlers.onSelect(frac);
     } else if (wasNew) {
       rect = undefined;
@@ -144,5 +145,11 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
     style.remove();
   }
 
-  return { close };
+  /** Replaces the hint (and the one shown after selecting), e.g. when the panel must be opened by hand. */
+  function setHint(text: string) {
+    selectedHint = text;
+    hint.textContent = text;
+  }
+
+  return { close, setHint };
 }

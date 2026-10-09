@@ -414,6 +414,16 @@ const cropRec = await sw.evaluate(async () => {
 });
 check('crop is saved as its own image, rotated (taller than wide), with its edits', !!cropRec && cropRec.h > cropRec.w && cropRec.edits?.rotate === 90 && cropRec.edits?.grayscale === true, JSON.stringify(cropRec));
 
+// Fallback when Chrome won't open the side panel from a page click: the popup offers it.
+await popup.evaluate(async () => {
+  const [me] = await chrome.tabs.query({ active: true, currentWindow: true });
+  await chrome.storage.session.set({ pendingCrop: { tabId: me.id, imageUrl: 'https://x.example/a.png', pageUrl: 'https://x.example/', pageTitle: 'A' } });
+});
+await popup.reload();
+await popup.waitForTimeout(500);
+check('popup offers "Open crop panel" while you are cropping', await popup.getByRole('button', { name: 'Open crop panel' }).isVisible());
+await popup.evaluate(() => chrome.storage.session.remove('pendingCrop'));
+
 await ctx.close();
 server.close();
 const failed = results.filter((r) => !r.ok).length;

@@ -64,11 +64,12 @@ export default defineBackground(() => {
   async function handleCrop(msg: Message, tabId: number | undefined): Promise<unknown> {
     switch (msg.type) {
       case 'crop-start': {
-        if (tabId === undefined) return false;
+        if (tabId === undefined) return { panel: false };
+        // Must be the very first call: Chrome only opens a side panel while the user's Crop click
+        // still counts, and any await before this loses it.
+        const opening = browser.sidePanel.open({ tabId }).then(() => true, () => false);
         await setPending({ tabId, imageUrl: msg.imageUrl, pageUrl: msg.pageUrl, pageTitle: msg.pageTitle, pageCredit: msg.pageCredit });
-        // Opening needs the user's click; the Crop click that sent this message provides it.
-        await browser.sidePanel.open({ tabId }).catch(() => {});
-        return true;
+        return { panel: await opening };
       }
       case 'crop-selected': {
         const p = await getPending();

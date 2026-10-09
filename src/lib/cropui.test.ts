@@ -67,3 +67,11 @@ describe('openCropper', () => {
     void c;
   });
 });
+
+describe('cropper hint', () => {
+  it('can change its hint, e.g. when the side panel could not open by itself', () => {
+    const c = openCropper(host, box, { onSelect: vi.fn(), onCancel: vi.fn() });
+    c.setHint('Click the moodoodle icon, then Open crop panel');
+    expect(host.querySelector('.crop-bar')!.textContent).toContain('Click the moodoodle icon, then Open crop panel');
+  });
+});

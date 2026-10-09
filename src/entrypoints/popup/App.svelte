@@ -5,7 +5,7 @@
   import { isSameLocalDay } from '@/lib/dates';
   import { resolveKeepingInto, setKeepingInto } from '@/lib/settings';
   import { BULK_BLOCKED_MESSAGE, bulkKeepBlocked } from '@/lib/respect';
-  import type { Board, CollectResult, KeepManyResult, Message, PageCredit, SavedImage } from '@/lib/types';
+  import type { Board, CollectResult, KeepManyResult, Message, PageCredit, PendingCrop, SavedImage } from '@/lib/types';
 
   type Tab = Browser.tabs.Tab;
   const store = openImageStore();
@@ -14,6 +14,14 @@
   let pageCredits: Record<string, PageCredit> = {};
   let pageNoAI = $state(false);
   let bulkBlocked = $state(false);
+  let cropping = $state(false);
+
+  /** A click in the popup always counts as the user's, so Chrome lets us open the side panel here. */
+  async function openCropPanel() {
+    if (tab?.id === undefined) return;
+    await browser.sidePanel.open({ tabId: tab.id });
+    window.close();
+  }
   let status = $state('');
   let query = $state('');
   let busy = $state(false);
@@ -43,6 +51,8 @@
     loadBoards();
     loadRecent();
     [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    const pendingCrop = (await browser.storage.session.get('pendingCrop')).pendingCrop as PendingCrop | undefined;
+    cropping = !!tab && pendingCrop?.tabId === tab.id;
     if (tab?.id === undefined) return;
     try {
       const msg: Message = { type: 'collect-images' };
@@ -91,6 +101,15 @@
         {#each boards as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
       </select>
     </label>
+  {/if}
+  {#if cropping}
+    <div class="card cropcard">
+      <div class="col">
+        <span class="strong">You're cropping an image</span>
+        <span class="muted">Edit and keep it in the side panel</span>
+      </div>
+      <button type="button" class="dark" onclick={openCropPanel}>Open crop panel</button>
+    </div>
   {/if}
   {#if recent.length}
     <span class="label">Recently kept</span>

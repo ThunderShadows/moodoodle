@@ -113,7 +113,7 @@ export default defineContentScript({
         type: 'crop-start', imageUrl: src, pageUrl: location.href, pageTitle: document.title,
         pageCredit: extractPageCredit(document, src),
       };
-      browser.runtime.sendMessage(start);
+      const opened = browser.runtime.sendMessage(start) as Promise<{ panel?: boolean } | undefined>;
       cropper = openCropper(root, img.getBoundingClientRect(), {
         onSelect: (crop) => {
           const msg: Message = { type: 'crop-selected', crop };
@@ -125,6 +125,9 @@ export default defineContentScript({
           browser.runtime.sendMessage(msg);
         },
       });
+      // Some Chrome versions won't open the panel from a page click; point people to the popup instead.
+      const thisCropper = cropper;
+      opened.then((r) => { if (!r?.panel && cropper === thisCropper) thisCropper.setHint('Click the moodoodle icon, then Open crop panel'); }, () => {});
     });
 
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
