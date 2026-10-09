@@ -207,10 +207,21 @@ ul.ticks li::before { content: ''; position: absolute; left: 0; top: 3px; width:
 .price .amt small { font: 600 16px/1 var(--body); color: var(--ink-soft); letter-spacing: 0; }
 .price.plus { background: var(--butter); }
 .price .badge { position: absolute; top: -18px; right: 24px; padding: 6px 14px; border-radius: 999px; background: var(--tangerine); box-shadow: 0 0 0 2px var(--ink); font: 700 22px/1 var(--hand); rotate: 4deg; }
-.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.choice { padding: 16px; border-radius: 16px; background: #FFFFFF; box-shadow: 0 0 0 2px var(--ink); text-align: center; }
-.choice b { display: block; font: 800 34px/1.1 var(--display); }
-.choice span { font-size: 14px; color: var(--ink-soft); }
+.ladder { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tier { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, #FFFFFF 55%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 25%, transparent); color: var(--ink-soft); }
+.tier .n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 800 15px/1 var(--display); box-shadow: 0 0 0 2px currentColor; }
+.tier b { display: block; font: 800 17px/1.2 var(--display); color: var(--ink); }
+.tier small { font-size: 13px; }
+.tier .p { font: 800 28px/1 var(--display); color: var(--ink); }
+.tier.now { background: #FFFFFF; box-shadow: 0 0 0 2px var(--ink), 4px 5px 0 var(--ink); color: var(--ink); }
+.tier.now .n { background: var(--tangerine); box-shadow: 0 0 0 2px var(--ink); }
+.tier.gone { opacity: .55; } .tier.gone .p { text-decoration: line-through; }
+.tier .left { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 999px; background: var(--rose); box-shadow: 0 0 0 2px var(--ink); font: 700 12px/1.4 var(--body); color: var(--ink); vertical-align: 1px; }
+.meter { height: 12px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 0 0 2px var(--ink); overflow: hidden; margin-top: 8px; grid-column: 2 / -1; }
+.meter i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(-45deg, var(--tangerine) 0 8px, var(--tangerine-deep) 8px 16px); transition: width 1.2s cubic-bezier(.2,.8,.2,1); }
+.price.in .meter i { width: var(--sold, 0%); }
+.now-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.now-price .amt s { font: 700 26px/1 var(--display); color: var(--ink-soft); margin-left: 6px; }
 .fine { font-size: 14px; color: var(--ink-soft); }
 
 /* FAQ */
@@ -472,7 +483,7 @@ footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; 
           <a class="btn ghost" href="#install" style="margin-top:auto">Add to Chrome</a>
         </div>
         <div class="card price plus reveal">
-          <span class="badge">lifetime!</span>
+          <span class="badge">founding price!</span>
           <h3>Plus</h3>
           <p style="margin:0;color:var(--ink-soft)">Everything in Free, and:</p>
           <ul class="ticks">
@@ -481,12 +492,14 @@ footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; 
             <li>Unlimited boards</li>
             <li>Lifetime updates</li>
           </ul>
-          <div class="choices">
-            <div class="choice"><b>$19</b><span>1 browser</span></div>
-            <div class="choice"><b>$29</b><span>3 browsers</span></div>
-          </div>
-          <a class="btn primary" href="#install">Get kudoodle Plus</a>
-          <p class="fine" style="margin:0">One-time payment · 30-day money-back guarantee · checkout by Dodo Payments</p>
+          <ol class="ladder" id="ladder" aria-label="Founding price ladder">
+            <li class="tier now" data-price="9" data-count="20"><span class="n">1</span><span><b>Founding 20 <span class="left" data-left>20 left</span></b><small>first 20 copies, yours for life</small></span><span class="p">$9</span><span class="meter" aria-hidden="true"><i></i></span></li>
+            <li class="tier" data-price="19" data-count="60"><span class="n">2</span><span><b>Next 60</b><small>once the first 20 are gone</small></span><span class="p">$19</span></li>
+            <li class="tier"><span class="n">3</span><span><b>After that</b><small>regular price, a little higher</small></span><span class="p">later</span></li>
+          </ol>
+          <div class="now-price"><span class="amt" data-now>$9 <small>once, for life</small></span></div>
+          <a class="btn primary" href="#install" data-cta>Get kudoodle Plus for $9</a>
+          <p class="fine" style="margin:0">One-time payment for 1 browser · the price you pay is yours for life · 30-day money-back guarantee · checkout by Dodo Payments</p>
         </div>
       </div>
     </div>
@@ -499,7 +512,7 @@ footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; 
         <details><summary>Is my collection private?</summary><p>Yes. Everything you keep stays in your browser. kudoodle has no accounts, no servers and no analytics, and Find similar runs on your own computer. See the <a href="privacy.html">privacy policy</a>.</p></details>
         <details><summary>Can I use the images I keep?</summary><p>kudoodle is for personal reference. Each keep shows what the artist allows: <b>Free to reuse</b>, <b>Reuse with conditions</b>, or <b>Reference only</b> when nothing is stated. If you reuse something, the CREDITS.md in your download gives you the credit line.</p></details>
         <details><summary>Why can't I keep a whole page at once on art sites?</summary><p>Artists on platforms like ArtStation and Cara have asked not to be collected in bulk, so kudoodle doesn't. You can still keep the pieces you love one at a time.</p></details>
-        <details><summary>What does "lifetime" mean?</summary><p>Pay once and Plus is yours, including future updates. The 1-browser license works on one Chrome profile; the 3-browser license on three.</p></details>
+        <details><summary>What does "lifetime" mean? Will the price change?</summary><p>Pay once and Plus is yours, including future updates. The first 20 copies are $9 and the next 60 are $19. Whatever you pay, you never pay again, even when the price goes up later.</p></details>
         <details><summary>What if it's not for me?</summary><p>Email us within 30 days and you'll get a full refund, no questions asked.</p></details>
         <details><summary>Which browsers does it work on?</summary><p>Chrome and other Chromium browsers that support Chrome extensions, such as Edge, Brave and Opera.</p></details>
       </div>
@@ -518,7 +531,7 @@ footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; 
 <footer>
   <div class="wrap">
     <a class="logo" href="#top"><svg viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="32" fill="#3B2A20"/><path d="M30 92c8-22 18-22 22 0s14 22 22 0 14-22 22 0" fill="none" stroke="#F08A4B" stroke-width="10" stroke-linecap="round"/><circle cx="46" cy="44" r="9" fill="#FFF6EA"/><circle cx="82" cy="44" r="9" fill="#FFF6EA"/></svg>kudoodle</a>
-    <nav aria-label="Footer"><a href="privacy.html">Privacy policy</a><a href="mailto:sumantusha01@gmail.com">Contact</a><a href="#faq">FAQ</a></nav>
+    <nav aria-label="Footer"><a href="privacy.html">Privacy policy</a><a href="mailto:sumanthusha01@gmail.com">Contact</a><a href="#faq">FAQ</a></nav>
     <span class="fine">© 2026 kudoodle · made with doodles</span>
   </div>
 </footer>
@@ -534,6 +547,33 @@ footer nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; 
     }
   }, { threshold: 0.2 });
   document.querySelectorAll('.reveal, [data-play]').forEach((el) => io.observe(el));
+
+  // Founding price ladder. Update SOLD by hand after each Plus sale (Dodo dashboard), then push.
+  const SOLD = 0;
+  const tiers = [...document.querySelectorAll('#ladder .tier[data-count]')];
+  let before = 0, current = null;
+  for (const t of tiers) {
+    const count = +t.dataset.count, sold = Math.min(Math.max(SOLD - before, 0), count);
+    t.classList.toggle('gone', sold >= count);
+    t.classList.remove('now');
+    if (!current && sold < count) {
+      current = t; t.classList.add('now');
+      let left = t.querySelector('[data-left]');
+      if (!left) { left = document.createElement('span'); left.className = 'left'; t.querySelector('b').append(left); }
+      left.textContent = `${count - sold} left`;
+      let meter = t.querySelector('.meter');
+      if (!meter) { meter = document.createElement('span'); meter.className = 'meter'; meter.innerHTML = '<i></i>'; t.append(meter); }
+      t.closest('.price').style.setProperty('--sold', `${Math.max(sold / count * 100, 3)}%`);
+    } else if (t !== current) {
+      t.querySelector('[data-left]')?.remove(); t.querySelector('.meter')?.remove();
+    }
+    before += count;
+  }
+  if (current) {
+    const p = current.dataset.price;
+    document.querySelector('[data-now]').innerHTML = `$${p} <small>once, for life</small>`;
+    document.querySelector('[data-cta]').textContent = `Get kudoodle Plus for $${p}`;
+  }
 </script>
 </body>
 </html>

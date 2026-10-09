@@ -69,4 +69,4 @@ Nothing else ever leaves your browser.
 
 ## Contact
 
-Questions, requests or complaints about privacy: sumantusha01@gmail.com
+Questions, requests or complaints about privacy: sumanthusha01@gmail.com
