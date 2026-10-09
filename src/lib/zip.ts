@@ -45,6 +45,7 @@ export function buildCreditsMd(entries: { name: string; image: SavedImage }[]): 
     lines.push(`- **Creator:** ${c.creator ? `${c.creator}${c.creatorUrl ? ` (${c.creatorUrl})` : ''}` : 'unknown'}`);
     lines.push(`- **Source:** ${image.pageUrl}`);
     lines.push(`- **License:** ${licenseText(c.license)}`);
+    if (image.crop) lines.push(`- **Note:** cropped${image.edits ? ' and edited' : ''} from the original image`);
     const line = creditLine(c, image.pageTitle);
     if (line) lines.push(`- **Credit line:** ${line}`);
     lines.push('');

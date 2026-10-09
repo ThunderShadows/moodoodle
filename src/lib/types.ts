@@ -59,6 +59,10 @@ export interface SavedImage {
   tags: string[];
   boardIds: string[];
   credit: Credit;
+  /** Set when only part of the original image was kept. */
+  crop?: import('./crop').CropRect;
+  /** Set when the crop was edited before keeping. */
+  edits?: import('./edits').Edits;
 }
 
 export type KeepErrorReason =

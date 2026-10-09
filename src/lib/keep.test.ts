@@ -185,7 +185,7 @@ describe('keeping a crop', () => {
     const crop = vi.fn(async () => cropped());
     const d = deps({ crop });
     const r = await keepImage(d, { ...input, crop: half, pageCredit: { jsonLd: { creator: 'Jane' }, noAI: false } });
-    expect(crop).toHaveBeenCalledWith(expect.any(Blob), half);
+    expect(crop).toHaveBeenCalledWith(expect.any(Blob), half, undefined);
     expect(r.status).toBe('kept');
     if (r.status !== 'kept') return;
     expect(r.image.imageUrl).toBe(`${input.imageUrl}#moodoodle-crop=0,0,0.5,0.5`);
@@ -218,5 +218,23 @@ describe('crops keep the file\'s own credit', () => {
     const d = deps({ fetchImage: vi.fn(async () => ({ blob: original })), crop: vi.fn(async () => new Blob([new Uint8Array([1])], { type: 'image/png' })) });
     const r = await keepImage(d, { ...input, crop: { x: 0, y: 0, w: 0.5, h: 0.5 } });
     expect(r.status === 'kept' && r.image.credit.creator).toBe('Lena O.');
+  });
+});
+
+describe('keeping an edited crop', () => {
+  it('passes the edits to the cropper and remembers the crop and edits on the image', async () => {
+    const crop = vi.fn(async () => new Blob([new Uint8Array([7])], { type: 'image/png' }));
+    const d = deps({ crop });
+    const edits = { rotate: 90 as const, flipH: false, flipV: false, brightness: 110, contrast: 100, saturation: 100, grayscale: true };
+    const rect = { x: 0, y: 0, w: 0.5, h: 0.5 };
+    const r = await keepImage(d, { ...input, crop: rect, edits });
+    expect(crop).toHaveBeenCalledWith(expect.any(Blob), rect, edits);
+    expect(r.status === 'kept' && r.image).toMatchObject({ crop: rect, edits });
+  });
+  it('keeps into an explicitly chosen board', async () => {
+    const d = deps({ crop: vi.fn(async () => new Blob([new Uint8Array([7])], { type: 'image/png' })) });
+    const board = await d.store.createBoard('Refs', 'sky');
+    const r = await keepImage(d, { ...input, crop: { x: 0, y: 0, w: 0.5, h: 0.5 }, board });
+    expect(r.status === 'kept' && r.image.boardIds).toEqual([board.id]);
   });
 });

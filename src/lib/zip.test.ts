@@ -82,3 +82,12 @@ describe('buildZip', () => {
     expect(Object.keys(zip.files)).toEqual(['spring-doodles.png']);
   });
 });
+
+describe('CREDITS.md for crops', () => {
+  it('says when an image was cropped or edited from the original', () => {
+    const cropped = img({ crop: { x: 0, y: 0, w: 0.5, h: 0.5 }, edits: { rotate: 0, flipH: false, flipV: false, brightness: 100, contrast: 100, saturation: 100, grayscale: true } });
+    expect(buildCreditsMd([{ name: 'a.png', image: cropped }])).toContain('- **Note:** cropped and edited from the original image');
+    const onlyCropped = img({ crop: { x: 0, y: 0, w: 0.5, h: 0.5 } });
+    expect(buildCreditsMd([{ name: 'b.png', image: onlyCropped }])).toContain('- **Note:** cropped from the original image');
+  });
+});

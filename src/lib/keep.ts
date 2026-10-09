@@ -5,6 +5,7 @@ import { mergeCredit, parseRobots } from './credit';
 import { readXmp } from './xmp';
 import { bulkKeepBlocked } from './respect';
 import { cropUrl, type CropRect } from './crop';
+import { isUnedited, type Edits } from './edits';
 import { MAX_BYTES, type KeepErrorReason, type KeepManyResult, type KeepResult, type PageCredit, type SavedImage } from './types';
 
 export interface Decoded {
@@ -21,7 +22,7 @@ export interface KeepDeps {
   fetchImage(url: string): Promise<{ blob: Blob; robots?: string }>;
   decode(blob: Blob): Promise<Decoded>;
   /** Cuts a region out of an image (worker: OffscreenCanvas). Only needed for crops. */
-  crop?(blob: Blob, rect: CropRect): Promise<Blob>;
+  crop?(blob: Blob, rect: CropRect, edits?: Edits): Promise<Blob>;
   maxBytes?: number;
 }
 
@@ -35,6 +36,8 @@ export interface KeepInput {
   pageCredit?: PageCredit;
   /** Keep only this part of the image (fractions of the image). */
   crop?: CropRect;
+  /** Edits applied to the crop before it's saved. */
+  edits?: Edits;
 }
 
 export function siteOf(url: string): string {
@@ -77,7 +80,7 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
   if (input.crop) {
     if (!deps.crop) return fail('decode-failed');
     try {
-      blob = await deps.crop(blob, input.crop);
+      blob = await deps.crop(blob, input.crop, input.edits);
     } catch {
       return fail('decode-failed');
     }
@@ -97,6 +100,8 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
     const image = await deps.store.add(
       {
         imageUrl: key,
+        ...(input.crop ? { crop: input.crop } : {}),
+        ...(input.crop && input.edits && !isUnedited(input.edits) ? { edits: input.edits } : {}),
         pageUrl: input.pageUrl,
         pageTitle: input.pageTitle.trim() || site,
         site,
