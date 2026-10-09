@@ -1,4 +1,4 @@
-/** Artist communities where moodoodle never collects in bulk (v1.2 spec §6). */
+/** Artist communities where kudoodle never collects in bulk (v1.2 spec §6). */
 export const ARTIST_PLATFORMS = ['artstation.com', 'cara.app', 'deviantart.com', 'behance.net', 'dribbble.com'];
 
 export function isArtistPlatform(url: string): boolean {

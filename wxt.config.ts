@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-svelte', '@wxt-dev/auto-icons'],
   autoIcons: { baseIconPath: 'assets/icon.svg' },
   manifest: {
-    name: 'moodoodle',
+    name: 'kudoodle',
     description: 'Keep the designs you love. Find more like them.',
     permissions: ['contextMenus', 'offscreen', 'sidePanel', 'storage', 'unlimitedStorage'],
     host_permissions: ['<all_urls>'],

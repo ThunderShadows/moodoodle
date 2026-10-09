@@ -75,7 +75,7 @@
 </script>
 
 <main class="panel">
-  <header><span class="word">moodoodle</span><span class="sub">Crop &amp; keep</span></header>
+  <header><span class="word">kudoodle</span><span class="sub">Crop &amp; keep</span></header>
 
   <section class="steps">
     <div class="step">

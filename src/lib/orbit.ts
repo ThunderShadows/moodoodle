@@ -189,7 +189,7 @@ export function openOrbit(root: ShadowRoot | HTMLElement, data: OrbitData, handl
     center.append(cimg);
     stage.append(ring, spin, center);
 
-    const note = plusNote ? 'Web search is coming with moodoodle Plus, along with unlimited boards and downloads.' : noteText(d, results.length);
+    const note = plusNote ? 'Web search is coming with kudoodle Plus, along with unlimited boards and downloads.' : noteText(d, results.length);
     if (note) stage.append(el('p', 'note', note));
 
     overlay.append(backdrop, head, closeBtn, stage, el('span', 'hint', 'hover to pause · click to peek'));
@@ -230,7 +230,7 @@ export function openOrbit(root: ShadowRoot | HTMLElement, data: OrbitData, handl
 
 function noteText(d: OrbitData, count: number): string | undefined {
   if (d.loading) return 'Looking through your saves…';
-  if (d.failed) return "Sorry, moodoodle couldn't read this image. Try Google Lens instead.";
+  if (d.failed) return "Sorry, kudoodle couldn't read this image. Try Google Lens instead.";
   if (count > 0) return d.learning ? 'Still learning your collection… more matches soon' : undefined;
   if (d.learning) return 'Still learning your collection… try again in a moment';
   return 'Nothing like this in your saves yet';

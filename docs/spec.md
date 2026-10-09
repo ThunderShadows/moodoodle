@@ -1,4 +1,4 @@
-# moodoodle: v1 spec
+# kudoodle: v1 spec
 
 **Date:** 2026-10-06
 **Status:** approved scope, pre-build

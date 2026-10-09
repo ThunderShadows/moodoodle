@@ -106,6 +106,6 @@ describe('web ring before Plus exists', () => {
   it('explains Plus is coming when there is nowhere to upgrade yet', () => {
     openOrbit(host, data({ web: { state: 'locked' } }), { onClose: vi.fn(), onShowInGallery: vi.fn() });
     host.querySelector<HTMLButtonElement>('.unlock')!.click();
-    expect(host.textContent).toContain('Web search is coming with moodoodle Plus');
+    expect(host.textContent).toContain('Web search is coming with kudoodle Plus');
   });
 });

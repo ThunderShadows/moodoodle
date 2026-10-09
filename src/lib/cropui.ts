@@ -62,7 +62,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, box: Box, handlers: 
 
   const clampX = (x: number) => Math.min(box.left + box.width, Math.max(box.left, x));
   const clampY = (y: number) => Math.min(box.top + box.height, Math.max(box.top, y));
-  let selectedHint = 'Edit and keep it in the moodoodle panel →';
+  let selectedHint = 'Edit and keep it in the kudoodle panel →';
   let rect: { x1: number; y1: number; x2: number; y2: number } | undefined;
   let mode: { kind: 'new' | 'resize'; fx: number; fy: number } | { kind: 'move'; sx: number; sy: number; start: NonNullable<typeof rect> } | undefined;
 

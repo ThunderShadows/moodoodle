@@ -101,7 +101,7 @@ export default defineContentScript({
       }
     }
 
-    // Crop: select part of the image here; edit and keep it in the moodoodle side panel.
+    // Crop: select part of the image here; edit and keep it in the kudoodle side panel.
     let cropper: ReturnType<typeof openCropper> | undefined;
     cropBtn.addEventListener('click', () => {
       const img = current;
@@ -127,7 +127,7 @@ export default defineContentScript({
       });
       // Some Chrome versions won't open the panel from a page click; point people to the popup instead.
       const thisCropper = cropper;
-      opened.then((r) => { if (!r?.panel && cropper === thisCropper) thisCropper.setHint('Click the moodoodle icon, then Open crop panel'); }, () => {});
+      opened.then((r) => { if (!r?.panel && cropper === thisCropper) thisCropper.setHint('Click the kudoodle icon, then Open crop panel'); }, () => {});
     });
 
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {

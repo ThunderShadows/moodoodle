@@ -86,7 +86,7 @@
 
 <div class="pop">
   <div class="top">
-    <span class="word">moodoodle</span>
+    <span class="word">kudoodle</span>
     <span class="hand">{todayCount} kept today</span>
   </div>
   <form onsubmit={(e) => { e.preventDefault(); openGallery(query); }}>

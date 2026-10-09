@@ -1,4 +1,4 @@
-# moodoodle
+# kudoodle
 
 Keep the designs you love. Find more like them.
 

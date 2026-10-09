@@ -1,13 +1,13 @@
 # Chrome Web Store listing
 
-**Name:** moodoodle
+**Name:** kudoodle
 **Summary (≤132 chars):** Keep the drawings and designs you love from any site, find more like them, and take them anywhere.
 **Category:** Productivity → Tools
 **Single purpose:** Save images you like from web pages into a private, searchable collection on your computer.
 
 **Description**
 
-> moodoodle is a cozy home for the doodles, drawings and designs you find while browsing.
+> kudoodle is a cozy home for the doodles, drawings and designs you find while browsing.
 >
 > • Hover any image and press **Keep**, or right-click → **Keep image**
 > • Every keep remembers where it came from, plus its color palette
@@ -39,7 +39,7 @@
   not used to determine creditworthiness or for lending.
 - Third-party transfer: only when the user clicks **Open in Google Lens**, which opens Google Lens with that image's address. Find similar itself runs on the device.
 - Licensing: Plus users' license key and a device label are sent to Dodo Payments' license service to check the key (declare **Authentication information**, transferred only to verify the purchase). Checkout itself happens on Dodo's site, not in the extension.
-- Privacy policy URL: `https://thundershadows.github.io/moodoodle/privacy.html` (GitHub Pages, from `site/`; regenerate with `python3 scripts/build-privacy-page.py` after editing `docs/privacy.md`).
+- Privacy policy URL: `https://kudoodle.com/privacy.html` (GitHub Pages, from `site/`; regenerate with `python3 scripts/build-privacy-page.py` after editing `docs/privacy.md`).
 
 **Wording rules:** never "scrape", "download any image" or "grab everything". No Google or Canva logos.
 

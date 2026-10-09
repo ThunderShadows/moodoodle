@@ -61,12 +61,12 @@ body = '\n'.join(out)
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>moodoodle · privacy policy</title>
+<title>kudoodle · privacy policy</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
-<a class="home" href="./">moodoodle</a>
+<a class="home" href="./">kudoodle</a>
 {body}
 </main>
 </body>

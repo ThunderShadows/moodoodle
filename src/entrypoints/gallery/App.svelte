@@ -165,13 +165,13 @@
   }
 
   function download() {
-    return exportZip(images.filter((i) => selected.has(i.id)), `moodoodle-${new Date().toISOString().slice(0, 10)}.zip`);
+    return exportZip(images.filter((i) => selected.has(i.id)), `kudoodle-${new Date().toISOString().slice(0, 10)}.zip`);
   }
 
   function downloadBoard(id: string) {
     const b = boards.find((x) => x.id === id);
     if (!b) return;
-    return exportZip(images.filter((i) => i.boardIds.includes(id)), `moodoodle-${slugify(b.name) || 'board'}.zip`);
+    return exportZip(images.filter((i) => i.boardIds.includes(id)), `kudoodle-${slugify(b.name) || 'board'}.zip`);
   }
 
   async function remove() {
@@ -213,7 +213,7 @@
 <main>
   <header>
     <div class="brand">
-      <span class="word">moodoodle</span>
+      <span class="word">kudoodle</span>
       <span class="hand">{images.length} little treasures</span>
     </div>
     <div class="search">

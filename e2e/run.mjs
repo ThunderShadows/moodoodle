@@ -1,4 +1,4 @@
-// End-to-end check of the moodoodle extension in Playwright's Chromium (headless).
+// End-to-end check of the kudoodle extension in Playwright's Chromium (headless).
 // Usage: npm run build && npm run e2e
 import http from 'node:http';
 import fs from 'node:fs';
