@@ -11,6 +11,7 @@
   import Sidebar from './Sidebar.svelte';
   import AddToBoard from './AddToBoard.svelte';
   import Details from './Details.svelte';
+  import Study from './Study.svelte';
   import { browser } from 'wxt/browser';
   import { openOrbit } from '@/lib/orbit';
   import { toOrbitData, type SimilarResult } from '@/lib/findsimilar';
@@ -32,6 +33,7 @@
   const selected = new SvelteSet<string>();
   let includeSources = $state(true);
   let busy = $state(false);
+  let studying = $state<SavedImage>();
 
   const visible = $derived(filterImages(images, { query, family, board: activeBoard }));
   const only = $derived(selected.size === 1 ? images.find((i) => selected.has(i.id)) : undefined);
@@ -316,6 +318,7 @@
     <div class="selbar" in:fly={{ y: 40, duration: ms(300), easing: backOut }}>
       {#key selected.size}<span class="hand" in:scale={{ start: 0.6, duration: ms(240), easing: backOut }}>{selected.size} picked</span>{/key}
       {#if only}
+        <button type="button" class="light" onclick={() => (studying = only)}>✎ Study</button>
         <button type="button" class="light" onclick={similar}>Find similar</button>
       {/if}
       <AddToBoard {boards} onadd={addSelectedTo} oncreate={createAndAdd} />
@@ -327,6 +330,11 @@
   {/if}
   <div bind:this={orbitHost}></div>
 </main>
+
+{#if studying}
+  {@const img = studying}
+  <Study image={img} getBlob={() => store.getBlob(img.id)} onclose={() => (studying = undefined)} />
+{/if}
 
 <style>
   main { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 28px 24px 140px; display: flex; flex-direction: column; gap: 28px; }

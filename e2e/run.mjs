@@ -224,6 +224,28 @@ check('tags save and are searchable', (await tiles.count()) === 1 && (await tile
 await gallery.fill('#q', '');
 await gallery.screenshot({ path: path.join(shots, '7-gallery-selected.png') });
 
+// Study: values, notan (only flat black and white), grid and palette.
+await gallery.getByRole('button', { name: '✎ Study' }).click();
+const study = gallery.getByRole('dialog', { name: /^Study/ });
+await study.getByRole('radio', { name: 'Notan' }).waitFor({ timeout: 5000 });
+await gallery.waitForTimeout(400);
+await study.getByRole('radio', { name: 'Notan' }).click();
+await study.getByRole('radio', { name: 'Thirds' }).click();
+await gallery.waitForTimeout(300);
+const notanGreys = await gallery.evaluate(() => {
+  const c = document.querySelector('.study canvas');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  const seen = new Set();
+  for (let i = 0; i < d.length; i += 4) { seen.add(`${d[i]},${d[i + 1]},${d[i + 2]}`); if (seen.size > 2) break; }
+  return [...seen];
+});
+check('study notan shows flat black and white shapes', notanGreys.length === 2 && notanGreys.every((g) => g === '0,0,0' || g === '255,255,255'), JSON.stringify(notanGreys));
+check('study shows a grid and a palette', (await gallery.locator('.study .grid line').count()) === 4 && (await study.getByRole('button', { name: /^Copy #/ }).count()) > 0);
+await gallery.screenshot({ path: path.join(shots, '18-study.png') });
+await gallery.keyboard.press('Escape');
+await gallery.waitForTimeout(400);
+check('Escape closes study', (await gallery.locator('.study').count()) === 0);
+
 await tiles.nth(1).click();
 const dl = gallery.waitForEvent('download');
 await gallery.getByRole('button', { name: 'Download .zip' }).click();
