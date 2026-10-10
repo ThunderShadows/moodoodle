@@ -518,6 +518,48 @@ const gifRec = await sw.evaluate(async () => {
 });
 check('keeps the chosen frame as a still crop', !!gifRec && gifRec.frame === 2 && gifRec.type === 'image/png' && gifRec.rgb[2] > 180 && gifRec.rgb[0] < 90, JSON.stringify(gifRec));
 
+// Whole frame: an animated image can be kept without selecting a part.
+const startGifCrop = async () => {
+  await web.goto(`${base}/gif`);
+  await web.waitForTimeout(500);
+  const b = await web.locator('#anim').boundingBox();
+  await web.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await web.waitForTimeout(150);
+  await web.mouse.click(b.x + b.width - 120, b.y + 32);
+  await panel.reload();
+  await panel.getByText('Frame 1 of 3').waitFor({ timeout: 15000 }).catch(() => {});
+};
+await startGifCrop();
+await panel.getByRole('button', { name: 'Next frame' }).click();
+await panel.waitForTimeout(800);
+const keepFrame = panel.getByRole('button', { name: /Keep this frame/ });
+check('an animated image can be kept as a whole frame without selecting', await keepFrame.isEnabled());
+await keepFrame.click();
+await panel.waitForTimeout(1500);
+const wholeFrame = await sw.evaluate(async () => {
+  const db = await new Promise((res) => { const r = indexedDB.open('moodoodle'); r.onsuccess = () => res(r.result); });
+  const all = await new Promise((res) => { const r = db.transaction('images').objectStore('images').getAll(); r.onsuccess = () => res(r.result); });
+  db.close();
+  const rec = all.find((i) => i.imageUrl.endsWith('anim.gif#moodoodle-crop=0,0,1,1,1'));
+  return rec ? { frame: rec.frame } : null;
+});
+check('the whole-frame keep is saved as that frame', wholeFrame?.frame === 1, JSON.stringify(wholeFrame));
+
+// The page moves the image by script while cropping (Google Images re-lays out when the panel opens).
+await startGifCrop();
+await web.evaluate(() => { document.body.style.marginLeft = '260px'; });
+await web.waitForTimeout(300);
+const g3 = await web.locator('#anim').boundingBox();
+await web.mouse.move(g3.x + 120, g3.y + 30);
+await web.mouse.down();
+await web.mouse.move(g3.x + 270, g3.y + 180, { steps: 5 });
+await web.mouse.up();
+await panel.waitForTimeout(500);
+const movedCrop = await panel.evaluate(async () => (await chrome.storage.session.get('pendingCrop')).pendingCrop?.crop);
+check('crop box follows the image when the page moves it', !!movedCrop && Math.abs(movedCrop.x - 0.4) < 0.02 && Math.abs(movedCrop.w - 0.5) < 0.02, JSON.stringify(movedCrop));
+await web.keyboard.press('Escape');
+await web.evaluate(() => { document.body.style.marginLeft = ''; });
+
 // Fallback when Chrome won't open the side panel from a page click: the popup offers it.
 await popup.evaluate(async () => {
   const [me] = await chrome.tabs.query({ active: true, currentWindow: true });

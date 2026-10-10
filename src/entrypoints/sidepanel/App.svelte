@@ -24,6 +24,8 @@
   const badge = $derived(badgeFor(parseLicense(credit?.jsonLd?.license ?? credit?.relLicense)));
   const pct = (n: number) => `${Math.round(n * 100)}%`;
   const frames = $derived(pending?.frames ?? 1);
+  // An animated image can be kept as one whole frame, so it doesn't need a selection first.
+  const canKeep = $derived(!!pending?.crop || frames > 1);
   // The slider moves at once; the chosen frame is sent after a short pause so scrubbing stays smooth.
   let frameDraft = $state(0);
   $effect(() => { frameDraft = pending?.frame ?? 0; });
@@ -106,7 +108,7 @@
           <span class="muted">drag again to reselect</span>
         </div>
       {:else if pending}
-        <div class="card"><span>{frames > 1 ? 'Pick a frame below, then drag over the part you want.' : 'Drag over the part of the image you want.'}</span></div>
+        <div class="card"><span>{frames > 1 ? 'Pick a frame below, then drag over the part you want (or keep the whole frame).' : 'Drag over the part of the image you want.'}</span></div>
       {:else}
         <div class="card"><span>Hover any image on a page and press <strong>Crop</strong>.</span></div>
       {/if}
@@ -136,15 +138,15 @@
         {/if}
       </div>
       <div class="tools" role="group" aria-label="Edit tools">
-        <button type="button" class="tool" aria-label="Rotate left" onclick={() => (edits = rotateBy(edits, -90))} disabled={!preview || !pending?.crop}>↺</button>
-        <button type="button" class="tool" aria-label="Rotate right" onclick={() => (edits = rotateBy(edits, 90))} disabled={!preview || !pending?.crop}>↻</button>
-        <button type="button" class="tool" class:on={edits.flipH} aria-pressed={edits.flipH} onclick={() => set('flipH', !edits.flipH)} disabled={!preview || !pending?.crop}>⇋ Flip</button>
-        <button type="button" class="tool" class:on={edits.grayscale} aria-pressed={edits.grayscale} onclick={() => set('grayscale', !edits.grayscale)} disabled={!preview || !pending?.crop}>◐ B&amp;W</button>
+        <button type="button" class="tool" aria-label="Rotate left" onclick={() => (edits = rotateBy(edits, -90))} disabled={!preview || !canKeep}>↺</button>
+        <button type="button" class="tool" aria-label="Rotate right" onclick={() => (edits = rotateBy(edits, 90))} disabled={!preview || !canKeep}>↻</button>
+        <button type="button" class="tool" class:on={edits.flipH} aria-pressed={edits.flipH} onclick={() => set('flipH', !edits.flipH)} disabled={!preview || !canKeep}>⇋ Flip</button>
+        <button type="button" class="tool" class:on={edits.grayscale} aria-pressed={edits.grayscale} onclick={() => set('grayscale', !edits.grayscale)} disabled={!preview || !canKeep}>◐ B&amp;W</button>
         <button type="button" class="reset" onclick={() => (edits = { ...NO_EDITS })} disabled={isUnedited(edits)}>Reset</button>
       </div>
       {#each [['brightness', 'Brightness'], ['contrast', 'Contrast'], ['saturation', 'Saturation']] as [key, label] (key)}
         <label class="slider" for="s-{key}">{label} <span class="muted">{edits[key as 'brightness']}%</span></label>
-        <input id="s-{key}" type="range" min="0" max="200" value={edits[key as 'brightness']} disabled={!preview || !pending?.crop}
+        <input id="s-{key}" type="range" min="0" max="200" value={edits[key as 'brightness']} disabled={!preview || !canKeep}
           oninput={(e) => set(key as 'brightness', Number((e.target as HTMLInputElement).value))} />
       {/each}
     </div>
@@ -164,7 +166,7 @@
 
   <footer>
     {#if status}<p class="status" role="status">{status}</p>{/if}
-    <button type="button" class="keep" onclick={() => keep(false)} disabled={busy || !pending?.crop}>{busy ? 'Keeping…' : '▶ Keep crop'}</button>
+    <button type="button" class="keep" onclick={() => keep(false)} disabled={busy || !canKeep}>{busy ? 'Keeping…' : pending?.crop || frames <= 1 ? '▶ Keep crop' : '▶ Keep this frame'}</button>
     <button type="button" class="whole" onclick={() => keep(true)} disabled={busy || !pending}>Keep the whole image instead</button>
   </footer>
 </main>

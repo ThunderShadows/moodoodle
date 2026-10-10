@@ -131,7 +131,7 @@ export default defineBackground(() => {
         };
         const result = afterKeep(await keepImage(keepDeps, {
           imageUrl: p.imageUrl, pageUrl: p.pageUrl, pageTitle: p.pageTitle, pageCredit: p.pageCredit,
-          crop: msg.whole ? undefined : p.crop, edits: msg.whole ? undefined : msg.edits, board, frame,
+          crop: msg.whole ? undefined : p.crop ?? (frame !== undefined ? { x: 0, y: 0, w: 1, h: 1 } : undefined), edits: msg.whole ? undefined : msg.edits, board, frame,
         }));
         const toast: Message = { type: 'toast', result };
         const done: Message = { type: 'crop-done' };

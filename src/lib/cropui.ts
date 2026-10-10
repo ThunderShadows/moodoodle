@@ -30,7 +30,9 @@ export function measureImage(img: HTMLImageElement): CropGeometry {
     fit: cs.objectFit, position: [pos(ox), pos(oy)],
   });
   const content = { left: r.left + inset.left, top: r.top + inset.top, width: Math.max(1, r.width - inset.left - inset.right), height: Math.max(1, r.height - inset.top - inset.bottom) };
-  return { box: intersect(image, content), image };
+  // Only the part that is on screen can be selected (pages often clip images in carousels or off the edge).
+  const screen = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  return { box: intersect(intersect(image, content), screen), image };
 }
 
 type Corner = 'nw' | 'ne' | 'sw' | 'se';
@@ -45,7 +47,7 @@ export const cropperCss = `
 .crop-handle { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 0 0 2px #2A2433; }
 .crop-handle.nw { left: -9px; top: -9px; cursor: nwse-resize; } .crop-handle.se { right: -9px; bottom: -9px; cursor: nwse-resize; }
 .crop-handle.ne { right: -9px; top: -9px; cursor: nesw-resize; } .crop-handle.sw { left: -9px; bottom: -9px; cursor: nesw-resize; }
-.crop-bar { position: fixed; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 999px; background: #2A2433; color: #FFFFFF; font: 600 13px/1 system-ui, sans-serif; box-shadow: 0 8px 22px rgba(0,0,0,.3); cursor: default; }
+.crop-bar { position: fixed; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 999px; background: #2A2433; color: #FFFFFF; font: 600 13px/1 system-ui, sans-serif; box-shadow: 0 8px 22px rgba(0,0,0,.3); cursor: default; white-space: nowrap; }
 .crop-cancel { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: #FFFFFF; color: #2A2433; font: inherit; cursor: pointer; }
 .crop-cancel:focus-visible { outline: 3px solid #FFB58F; outline-offset: 2px; }
 `;
@@ -98,15 +100,22 @@ export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => 
     Object.assign(frame.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
     Object.assign(still.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
     Object.assign(stillImg.style, { left: `${image.left - box.left}px`, top: `${image.top - box.top}px`, width: `${image.width}px`, height: `${image.height}px` });
-    bar.style.left = `${box.left}px`;
+    // The bar stays readable on screen even when the picture is narrow or near an edge.
+    const barWidth = bar.offsetWidth || 260;
+    bar.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - barWidth - 8))}px`;
     bar.style.top = `${Math.max(8, box.top - 48)}px`;
   }
   place();
 
-  // Opening the side panel (or any resize) moves the image: follow it and keep the selection on the same spot.
+  // Opening the side panel, a resize or the page's own script re-laying out can move the image:
+  // follow it every frame and keep the selection on the same spot of the picture.
+  const same = (a: Box, b: Box) => Math.abs(a.left - b.left) + Math.abs(a.top - b.top) + Math.abs(a.width - b.width) + Math.abs(a.height - b.height) < 0.5;
   function onResize() {
     const old = image;
-    ({ box, image } = measure());
+    const next = measure();
+    if (same(next.image, image) && same(next.box, box)) return;
+    if (next.image.width < 1 || next.image.height < 1) return; // hidden for a moment: keep the last spot
+    ({ box, image } = next);
     if (rect) {
       const mx = (x: number) => image.left + ((x - old.left) / old.width) * image.width;
       const my = (y: number) => image.top + ((y - old.top) / old.height) * image.height;
@@ -185,6 +194,9 @@ export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => 
   document.addEventListener('mouseup', onUp);
   document.addEventListener('keydown', onKey, true);
   window.addEventListener('resize', onResize);
+  let watching = typeof requestAnimationFrame === 'function';
+  const watch = () => { if (!watching) return; if (!mode) onResize(); requestAnimationFrame(watch); };
+  if (watching) requestAnimationFrame(watch);
   layer.addEventListener('wheel', stopWheel, { passive: false });
   cancel.addEventListener('click', () => { close(); handlers.onCancel(); });
 
@@ -193,6 +205,7 @@ export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => 
     document.removeEventListener('mouseup', onUp);
     document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
+    watching = false;
     layer.remove();
     style.remove();
   }
