@@ -135,6 +135,7 @@ export default defineContentScript({
       if (msg.type === 'toast') showToast(toastText(msg.result));
       if (msg.type === 'show-similar') showSimilar(msg.imageUrl);
       if (msg.type === 'crop-done') { cropper?.close(); cropper = undefined; }
+      if (msg.type === 'crop-backdrop') cropper?.setBackdrop(msg.url);
       if (msg.type === 'credit-for') sendResponse(extractPageCredit(document, msg.imageUrl));
       if (msg.type === 'collect-images') {
         const urls = collectImageUrls(document);

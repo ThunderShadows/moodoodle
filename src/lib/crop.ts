@@ -83,14 +83,15 @@ export function toPixelRect(c: CropRect, width: number, height: number) {
 }
 
 /** A stable, unique address for one crop of an image (used as its identity in the collection). */
-export function cropUrl(imageUrl: string, c: CropRect): string {
-  return `${baseImageUrl(imageUrl)}${TAG}${[c.x, c.y, c.w, c.h].map(round).join(',')}`;
+export function cropUrl(imageUrl: string, c: CropRect, frame?: number): string {
+  const parts = [c.x, c.y, c.w, c.h].map(round);
+  return `${baseImageUrl(imageUrl)}${TAG}${parts.join(',')}${frame !== undefined ? `,${frame}` : ''}`;
 }
 
 export function parseCropUrl(url: string): CropRect | undefined {
   const i = url.indexOf(TAG);
   if (i < 0) return undefined;
-  const [x, y, w, h] = url.slice(i + TAG.length).split(',').map(Number);
+  const [x, y, w, h] = url.slice(i + TAG.length).split(',').map(Number); // a 5th value is the frame
   return [x, y, w, h].every((n) => Number.isFinite(n)) ? { x: x!, y: y!, w: w!, h: h! } : undefined;
 }
 

@@ -60,6 +60,34 @@ export default defineBackground(() => {
   const getPending = async () => (await browser.storage.session.get(PENDING))[PENDING] as PendingCrop | undefined;
   const setPending = (p: PendingCrop | undefined) =>
     p ? browser.storage.session.set({ [PENDING]: p }) : browser.storage.session.remove(PENDING);
+  // Read-modify-write of the pending crop, one at a time (frame detection and selections can overlap).
+  let pendingChain: Promise<unknown> = Promise.resolve();
+  const updatePending = (change: (p: PendingCrop) => PendingCrop | undefined, imageUrl?: string) =>
+    (pendingChain = pendingChain.then(async () => {
+      const p = await getPending();
+      if (p && (!imageUrl || p.imageUrl === imageUrl)) await setPending(change(p));
+    }).catch(() => {}));
+
+  const isAnimated = (p: PendingCrop) => (p.frames ?? 1) > 1;
+  const frameDataUrl = async (url: string, index: number) =>
+    (await askOffscreen<{ dataUrl: string }>({ target: 'offscreen', type: 'frame', url, index })).dataUrl;
+  /** The picture being cropped: the chosen frame of an animated image, or the image file itself. */
+  async function cropSource(p: PendingCrop): Promise<Blob> {
+    if (!isAnimated(p)) return (await fetchImage(p.imageUrl)).blob;
+    return (await fetch(await frameDataUrl(p.imageUrl, p.frame ?? 0))).blob();
+  }
+  /** Freezes the animation on the page at the chosen frame while cropping. */
+  async function showFrameOnPage(p: PendingCrop) {
+    const backdrop: Message = { type: 'crop-backdrop', url: await frameDataUrl(p.imageUrl, p.frame ?? 0) };
+    await browser.tabs.sendMessage(p.tabId, backdrop);
+  }
+  async function detectFrames(imageUrl: string) {
+    const { count } = await askOffscreen<{ count: number }>({ target: 'offscreen', type: 'frame-count', url: imageUrl });
+    if (count <= 1) return;
+    await updatePending((p) => ({ ...p, frames: count, frame: 0 }), imageUrl);
+    const p = await getPending();
+    if (p?.imageUrl === imageUrl) await showFrameOnPage(p);
+  }
 
   async function handleCrop(msg: Message, tabId: number | undefined): Promise<unknown> {
     switch (msg.type) {
@@ -69,11 +97,16 @@ export default defineBackground(() => {
         // still counts, and any await before this loses it.
         const opening = browser.sidePanel.open({ tabId }).then(() => true, () => false);
         await setPending({ tabId, imageUrl: msg.imageUrl, pageUrl: msg.pageUrl, pageTitle: msg.pageTitle, pageCredit: msg.pageCredit });
+        detectFrames(msg.imageUrl).catch(() => {});
         return { panel: await opening };
       }
-      case 'crop-selected': {
+      case 'crop-selected':
+        await updatePending((p) => ({ ...p, crop: msg.crop }));
+        return true;
+      case 'crop-frame': {
+        await updatePending((p) => (isAnimated(p) ? { ...p, frame: Math.min(Math.max(0, msg.frame), p.frames! - 1) } : p));
         const p = await getPending();
-        if (p) await setPending({ ...p, crop: msg.crop });
+        if (p && isAnimated(p)) await showFrameOnPage(p).catch(() => {});
         return true;
       }
       case 'crop-cancel':
@@ -81,17 +114,24 @@ export default defineBackground(() => {
         return true;
       case 'crop-preview': {
         const p = await getPending();
-        if (!p?.crop) return null;
-        const { blob } = await fetchImage(p.imageUrl);
-        return blobToDataUrl(await cropInWorker(blob, p.crop, undefined, 720));
+        // Animated images preview the whole frame before a part is selected, to help pick the frame.
+        if (!p || (!p.crop && !isAnimated(p))) return null;
+        const blob = await cropSource(p);
+        return blobToDataUrl(await cropInWorker(blob, p.crop ?? { x: 0, y: 0, w: 1, h: 1 }, undefined, 720));
       }
       case 'crop-keep': {
         const p = await getPending();
         if (!p) return { status: 'error', reason: 'unsupported-url' };
         const board = msg.boardId ? await deps.store.getBoard(msg.boardId) : undefined;
-        const result = afterKeep(await keepImage(deps, {
+        const frame = !msg.whole && isAnimated(p) ? p.frame ?? 0 : undefined;
+        // For a frame, keep reads the original file's headers (No-AI) but crops the chosen frame.
+        const keepDeps: KeepDeps = frame === undefined ? deps : {
+          ...deps,
+          fetchImage: async (url) => ({ robots: (await fetchImage(url)).robots, blob: await cropSource(p) }),
+        };
+        const result = afterKeep(await keepImage(keepDeps, {
           imageUrl: p.imageUrl, pageUrl: p.pageUrl, pageTitle: p.pageTitle, pageCredit: p.pageCredit,
-          crop: msg.whole ? undefined : p.crop, edits: msg.whole ? undefined : msg.edits, board,
+          crop: msg.whole ? undefined : p.crop, edits: msg.whole ? undefined : msg.edits, board, frame,
         }));
         const toast: Message = { type: 'toast', result };
         const done: Message = { type: 'crop-done' };

@@ -203,6 +203,17 @@ describe('keeping a crop', () => {
     expect(await d.store.list()).toHaveLength(3);
   });
 
+  it('keeps each frame of an animation separately and remembers the frame', async () => {
+    const d = deps({ crop: vi.fn(async () => cropped()) });
+    const r = await keepImage(d, { ...input, crop: half, frame: 3 });
+    expect(r.status).toBe('kept');
+    if (r.status !== 'kept') return;
+    expect(r.image.frame).toBe(3);
+    expect(r.image.imageUrl).toBe(`${input.imageUrl}#moodoodle-crop=0,0,0.5,0.5,3`);
+    expect((await keepImage(d, { ...input, crop: half, frame: 4 })).status).toBe('kept');
+    expect((await keepImage(d, { ...input, crop: half, frame: 3 })).status).toBe('duplicate');
+  });
+
   it('reports a crop that cannot be cut', async () => {
     const d = deps({ crop: vi.fn(async () => { throw new Error('bad'); }) });
     expect(await keepImage(d, { ...input, crop: half })).toEqual({ status: 'error', reason: 'decode-failed' });

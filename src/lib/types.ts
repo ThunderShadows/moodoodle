@@ -63,6 +63,8 @@ export interface SavedImage {
   crop?: import('./crop').CropRect;
   /** Set when the crop was edited before keeping. */
   edits?: import('./edits').Edits;
+  /** Set when the crop is one frame (from 0) of an animated image. */
+  frame?: number;
 }
 
 export type KeepErrorReason =
@@ -90,6 +92,8 @@ export type Message =
   | { type: 'crop-start'; imageUrl: string; pageUrl: string; pageTitle: string; pageCredit?: PageCredit }
   | { type: 'crop-selected'; crop: import('./crop').CropRect }
   | { type: 'crop-cancel' }
+  | { type: 'crop-frame'; frame: number }
+  | { type: 'crop-backdrop'; url: string }
   | { type: 'crop-preview' }
   | { type: 'crop-keep'; edits: import('./edits').Edits; boardId: string | null; whole?: boolean }
   | { type: 'crop-done' }
@@ -133,7 +137,9 @@ export interface CollectResult {
 /** Messages the worker sends to the offscreen document that runs the image model. */
 export type OffscreenMessage =
   | { target: 'offscreen'; type: 'embed-image'; id: string }
-  | { target: 'offscreen'; type: 'embed-url'; url: string };
+  | { target: 'offscreen'; type: 'embed-url'; url: string }
+  | { target: 'offscreen'; type: 'frame-count'; url: string }
+  | { target: 'offscreen'; type: 'frame'; url: string; index: number };
 
 /** The crop the user is working on (kept in session storage so the side panel can show it). */
 export interface PendingCrop {
@@ -143,4 +149,7 @@ export interface PendingCrop {
   pageTitle: string;
   pageCredit?: PageCredit;
   crop?: import('./crop').CropRect;
+  /** Animated images: how many frames it has, and the one being cropped (from 0). */
+  frames?: number;
+  frame?: number;
 }

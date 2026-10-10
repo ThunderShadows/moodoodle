@@ -5,6 +5,8 @@ import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url';
 import mjsUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url';
 import { openImageStore } from '@/lib/db';
 import { clsEmbedding } from '@/lib/embedder';
+import { frameAt, frameCount } from '@/lib/frames';
+import { blobToDataUrl } from '@/lib/findsimilar';
 import type { OffscreenMessage } from '@/lib/types';
 
 // Everything is bundled: no model or runtime is ever fetched from the internet.
@@ -23,6 +25,17 @@ function model(): Promise<Extractor> {
   return extractor;
 }
 
+// Scrubbing through a GIF asks for many frames of the same file: keep the last one downloaded.
+let source: { url: string; blob: Promise<Blob> } | undefined;
+function sourceBlob(url: string): Promise<Blob> {
+  if (source?.url !== url) {
+    const blob = fetch(url, { credentials: 'omit' }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); });
+    source = { url, blob };
+    blob.catch(() => { if (source?.blob === blob) source = undefined; });
+  }
+  return source.blob;
+}
+
 async function embed(image: RawImage): Promise<Float32Array> {
   return clsEmbedding(await (await model())(image));
 }
@@ -39,6 +52,8 @@ browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       await store.setEmbedding(msg.id, await embed(await RawImage.fromBlob(blob)));
       return { ok: true };
     }
+    if (msg.type === 'frame-count') return { ok: true, count: await frameCount(await sourceBlob(msg.url)) };
+    if (msg.type === 'frame') return { ok: true, dataUrl: await blobToDataUrl(await frameAt(await sourceBlob(msg.url), msg.index)) };
     const vec = await embed(await RawImage.fromURL(msg.url));
     return { ok: true, vec: Array.from(vec) };
   })().then(sendResponse, (e: unknown) => sendResponse({ ok: false, error: String(e) }));

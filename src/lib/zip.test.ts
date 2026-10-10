@@ -89,5 +89,7 @@ describe('CREDITS.md for crops', () => {
     expect(buildCreditsMd([{ name: 'a.png', image: cropped }])).toContain('- **Note:** cropped and edited from the original image');
     const onlyCropped = img({ crop: { x: 0, y: 0, w: 0.5, h: 0.5 } });
     expect(buildCreditsMd([{ name: 'b.png', image: onlyCropped }])).toContain('- **Note:** cropped from the original image');
+    const frame = img({ crop: { x: 0, y: 0, w: 1, h: 1 }, frame: 6 });
+    expect(buildCreditsMd([{ name: 'c.png', image: frame }])).toContain('- **Note:** cropped from frame 7 of the original animation');
   });
 });

@@ -38,6 +38,8 @@ export interface KeepInput {
   crop?: CropRect;
   /** Edits applied to the crop before it's saved. */
   edits?: Edits;
+  /** The crop is this frame of an animated image (fetchImage then returns that frame). */
+  frame?: number;
 }
 
 export function siteOf(url: string): string {
@@ -62,7 +64,7 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
   if (!isKeepableUrl(input.imageUrl)) return fail('unsupported-url');
 
   // A crop is its own keep, identified by the image address plus the crop rectangle.
-  const key = input.crop ? cropUrl(input.imageUrl, input.crop) : input.imageUrl;
+  const key = input.crop ? cropUrl(input.imageUrl, input.crop, input.frame) : input.imageUrl;
   const existing = await deps.store.findByUrl(key);
   if (existing) return duplicate(deps, existing, input.board);
 
@@ -102,6 +104,7 @@ export async function keepImage(deps: KeepDeps, input: KeepInput): Promise<KeepR
         imageUrl: key,
         ...(input.crop ? { crop: input.crop } : {}),
         ...(input.crop && input.edits && !isUnedited(input.edits) ? { edits: input.edits } : {}),
+        ...(input.crop && input.frame !== undefined ? { frame: input.frame } : {}),
         pageUrl: input.pageUrl,
         pageTitle: input.pageTitle.trim() || site,
         site,

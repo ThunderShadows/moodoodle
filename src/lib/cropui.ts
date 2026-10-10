@@ -37,6 +37,8 @@ type Corner = 'nw' | 'ne' | 'sw' | 'se';
 
 export const cropperCss = `
 .crop-layer { position: fixed; inset: 0; z-index: 2147483646; cursor: crosshair; }
+.crop-still { position: fixed; overflow: hidden; pointer-events: none; }
+.crop-still img { position: absolute; max-width: none; }
 .crop-frame { position: fixed; outline: 2px dashed rgba(255,255,255,0.9); outline-offset: -2px; box-shadow: 0 0 0 9999px rgba(42,36,51,0.35); pointer-events: none; }
 .crop-sel { position: fixed; border: 2px dashed #FFFFFF; border-radius: 4px; box-shadow: 0 0 0 9999px rgba(42,36,51,0.55); cursor: move; }
 .crop-sel[hidden] { display: none; }
@@ -76,7 +78,14 @@ export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => 
   cancel.className = 'crop-cancel';
   cancel.textContent = 'Cancel';
   bar.append(hint, cancel);
-  layer.append(frame, sel, bar);
+  // Animated images: the chosen frame is laid over the moving picture so it holds still while cropping.
+  const still = document.createElement('div');
+  still.className = 'crop-still';
+  still.hidden = true;
+  const stillImg = document.createElement('img');
+  stillImg.alt = '';
+  still.append(stillImg);
+  layer.append(still, frame, sel, bar);
   root.append(style, layer);
 
   const clampX = (x: number) => Math.min(box.left + box.width, Math.max(box.left, x));
@@ -87,6 +96,8 @@ export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => 
 
   function place() {
     Object.assign(frame.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+    Object.assign(still.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+    Object.assign(stillImg.style, { left: `${image.left - box.left}px`, top: `${image.top - box.top}px`, width: `${image.width}px`, height: `${image.height}px` });
     bar.style.left = `${box.left}px`;
     bar.style.top = `${Math.max(8, box.top - 48)}px`;
   }
@@ -192,5 +203,11 @@ export function openCropper(root: ShadowRoot | HTMLElement, where: Box | (() => 
     hint.textContent = text;
   }
 
-  return { close, setHint };
+  /** Shows one still frame in place of the moving picture. */
+  function setBackdrop(url: string) {
+    stillImg.src = url;
+    still.hidden = false;
+  }
+
+  return { close, setHint, setBackdrop };
 }

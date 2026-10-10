@@ -65,3 +65,14 @@ describe('selectionToFraction with object-fit: cover', () => {
     expect(selectionToFraction({ x: 0, y: 0 }, { x: 200, y: 200 }, box, image)).toEqual({ x: 0.25, y: 0, w: 0.5, h: 1 });
   });
 });
+
+describe('cropUrl with a frame', () => {
+  it('makes each frame of an animation its own keep, and still parses the rectangle', () => {
+    const c = { x: 0.1, y: 0.2, w: 0.3, h: 0.4 };
+    const url = cropUrl('https://x.com/a.gif', c, 7);
+    expect(url).toBe('https://x.com/a.gif#moodoodle-crop=0.1,0.2,0.3,0.4,7');
+    expect(url).not.toBe(cropUrl('https://x.com/a.gif', c, 8));
+    expect(parseCropUrl(url)).toEqual(c);
+    expect(baseImageUrl(url)).toBe('https://x.com/a.gif');
+  });
+});

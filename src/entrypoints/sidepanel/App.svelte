@@ -6,6 +6,7 @@
   import { BADGE_LABEL, badgeFor, parseLicense } from '@/lib/license';
   import { NO_EDITS, clampEdits, cssFilter, cssTransform, isUnedited, rotateBy, type Edits } from '@/lib/edits';
   import { toastText } from '@/lib/toast';
+  import { frameLabel } from '@/lib/frames';
   import type { Board, KeepResult, Message, PendingCrop } from '@/lib/types';
 
   const store = openImageStore();
@@ -22,12 +23,25 @@
   const creator = $derived(credit?.jsonLd?.creator ?? credit?.metaAuthor);
   const badge = $derived(badgeFor(parseLicense(credit?.jsonLd?.license ?? credit?.relLicense)));
   const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const frames = $derived(pending?.frames ?? 1);
+  // The slider moves at once; the chosen frame is sent after a short pause so scrubbing stays smooth.
+  let frameDraft = $state(0);
+  $effect(() => { frameDraft = pending?.frame ?? 0; });
+  let frameTimer: ReturnType<typeof setTimeout> | undefined;
+  function pickFrame(n: number) {
+    frameDraft = Math.min(Math.max(0, n), frames - 1);
+    clearTimeout(frameTimer);
+    frameTimer = setTimeout(() => {
+      const msg: Message = { type: 'crop-frame', frame: frameDraft };
+      browser.runtime.sendMessage(msg);
+    }, 140);
+  }
 
   // Reselecting quickly starts several previews; only the newest one may be shown.
   let previewSeq = 0;
   async function refreshPreview() {
     const seq = ++previewSeq;
-    if (!pending?.crop) { preview = null; loadingPreview = false; return; }
+    if (!pending?.crop && (pending?.frames ?? 1) <= 1) { preview = null; loadingPreview = false; return; }
     loadingPreview = true;
     let next: string | null = null;
     try {
@@ -92,11 +106,25 @@
           <span class="muted">drag again to reselect</span>
         </div>
       {:else if pending}
-        <div class="card"><span>Drag over the part of the image you want.</span></div>
+        <div class="card"><span>{frames > 1 ? 'Pick a frame below, then drag over the part you want.' : 'Drag over the part of the image you want.'}</span></div>
       {:else}
         <div class="card"><span>Hover any image on a page and press <strong>Crop</strong>.</span></div>
       {/if}
     </div>
+
+    {#if frames > 1}
+      <div class="step frames">
+        <div class="title"><span class="num">✦</span>Pick a frame <span class="muted count">{frameLabel(frameDraft, frames)}</span></div>
+        <div class="scrub">
+          <button type="button" class="tool" aria-label="Previous frame" onclick={() => pickFrame(frameDraft - 1)} disabled={frameDraft <= 0}>◀</button>
+          <label class="sr" for="frame">Frame</label>
+          <input id="frame" type="range" min="0" max={frames - 1} value={frameDraft}
+            oninput={(e) => pickFrame(Number((e.target as HTMLInputElement).value))} />
+          <button type="button" class="tool" aria-label="Next frame" onclick={() => pickFrame(frameDraft + 1)} disabled={frameDraft >= frames - 1}>▶</button>
+        </div>
+        <span class="muted small">The animation holds still on this frame while you crop.</span>
+      </div>
+    {/if}
 
     <div class="step">
       <div class="title"><span class="num">2</span>Edit</div>
@@ -108,15 +136,15 @@
         {/if}
       </div>
       <div class="tools" role="group" aria-label="Edit tools">
-        <button type="button" class="tool" aria-label="Rotate left" onclick={() => (edits = rotateBy(edits, -90))} disabled={!preview}>↺</button>
-        <button type="button" class="tool" aria-label="Rotate right" onclick={() => (edits = rotateBy(edits, 90))} disabled={!preview}>↻</button>
-        <button type="button" class="tool" class:on={edits.flipH} aria-pressed={edits.flipH} onclick={() => set('flipH', !edits.flipH)} disabled={!preview}>⇋ Flip</button>
-        <button type="button" class="tool" class:on={edits.grayscale} aria-pressed={edits.grayscale} onclick={() => set('grayscale', !edits.grayscale)} disabled={!preview}>◐ B&amp;W</button>
+        <button type="button" class="tool" aria-label="Rotate left" onclick={() => (edits = rotateBy(edits, -90))} disabled={!preview || !pending?.crop}>↺</button>
+        <button type="button" class="tool" aria-label="Rotate right" onclick={() => (edits = rotateBy(edits, 90))} disabled={!preview || !pending?.crop}>↻</button>
+        <button type="button" class="tool" class:on={edits.flipH} aria-pressed={edits.flipH} onclick={() => set('flipH', !edits.flipH)} disabled={!preview || !pending?.crop}>⇋ Flip</button>
+        <button type="button" class="tool" class:on={edits.grayscale} aria-pressed={edits.grayscale} onclick={() => set('grayscale', !edits.grayscale)} disabled={!preview || !pending?.crop}>◐ B&amp;W</button>
         <button type="button" class="reset" onclick={() => (edits = { ...NO_EDITS })} disabled={isUnedited(edits)}>Reset</button>
       </div>
       {#each [['brightness', 'Brightness'], ['contrast', 'Contrast'], ['saturation', 'Saturation']] as [key, label] (key)}
         <label class="slider" for="s-{key}">{label} <span class="muted">{edits[key as 'brightness']}%</span></label>
-        <input id="s-{key}" type="range" min="0" max="200" value={edits[key as 'brightness']} disabled={!preview}
+        <input id="s-{key}" type="range" min="0" max="200" value={edits[key as 'brightness']} disabled={!preview || !pending?.crop}
           oninput={(e) => set(key as 'brightness', Number((e.target as HTMLInputElement).value))} />
       {/each}
     </div>
@@ -157,14 +185,18 @@
   .small { font-size: 12px; }
   .preview { height: 190px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .preview { container-type: size; }
-  .preview img { max-width: 86cqw; max-height: 86cqh; border-radius: 8px; transition: transform .2s ease; }
-  /* Turned sideways, the picture's width becomes its height: swap the limits so it still fits. */
-  .preview img.sideways { max-width: 86cqh; max-height: 86cqw; }
+  /* Small crops (GIFs often are) are scaled up to fill the box; object-fit keeps their shape. */
+  .preview img { width: 86cqw; height: 86cqh; object-fit: contain; transition: transform .2s ease; }
+  /* Turned sideways, the picture's width becomes its height: swap the sizes so it still fits. */
+  .preview img.sideways { width: 86cqh; height: 86cqw; }
   .tools { display: flex; gap: 6px; flex-wrap: wrap; }
   .tool { height: 40px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--card); box-shadow: 0 0 0 1px var(--line); font-weight: 600; cursor: pointer; }
   .tool.on { background: var(--ink); color: #FFFFFF; }
   .tool:disabled, .reset:disabled { opacity: .45; cursor: default; }
   .reset { margin-left: auto; height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--focus); font-weight: 600; cursor: pointer; }
+  .frames .count { margin-left: auto; font-weight: 600; }
+  .scrub { display: flex; align-items: center; gap: 8px; }
+  .scrub input { flex: 1; }
   .slider { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
   input[type='range'] { width: 100%; accent-color: var(--ink); }
   select { height: 44px; padding: 0 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--card); font-weight: 600; }

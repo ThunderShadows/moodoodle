@@ -19,6 +19,29 @@ function withXmp(jpeg, xmp) {
   len.writeUInt16BE(body.length + 2);
   return Buffer.concat([jpeg.subarray(0, 2), Buffer.from([0xff, 0xe1]), len, body, jpeg.subarray(2)]);
 }
+/** A tiny animated GIF: one solid color per frame (uncompressed LZW: a clear code every 2 pixels). */
+function animatedGif(size, colors) {
+  const out = [];
+  const u16 = (n) => [n & 255, n >> 8];
+  const palette = [...colors, ...Array(4 - colors.length).fill([0, 0, 0])].flat();
+  out.push(...Buffer.from('GIF89a'), ...u16(size), ...u16(size), 0xf1, 0, 0, ...palette);
+  out.push(0x21, 0xff, 11, ...Buffer.from('NETSCAPE2.0'), 3, 1, 0, 0, 0); // loop forever
+  colors.forEach((_, index) => {
+    out.push(0x21, 0xf9, 4, 0, ...u16(30), 0, 0); // 0.3 s per frame
+    out.push(0x2c, 0, 0, 0, 0, ...u16(size), ...u16(size), 0, 2);
+    const bytes = [];
+    let acc = 0, bits = 0;
+    const code = (c) => { acc |= c << bits; bits += 3; while (bits >= 8) { bytes.push(acc & 255); acc >>= 8; bits -= 8; } };
+    for (let i = 0; i < size * size; i += 2) { code(4); code(index); if (i + 1 < size * size) code(index); }
+    code(5);
+    if (bits) bytes.push(acc & 255);
+    for (let i = 0; i < bytes.length; i += 255) { const chunk = bytes.slice(i, i + 255); out.push(chunk.length, ...chunk); }
+    out.push(0);
+  });
+  out.push(0x3b);
+  return Buffer.from(out);
+}
+
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
@@ -55,6 +78,7 @@ files['/xmp.jpg'] = withXmp(await maker.screenshot({ type: 'jpeg' }),
   '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF><rdf:Description><dc:creator><rdf:Seq><rdf:li>Lena O.</rdf:li></rdf:Seq></dc:creator>'
   + '<cc:license rdf:resource="https://creativecommons.org/licenses/by-nc/4.0/"/></rdf:Description></rdf:RDF></x:xmpmeta>');
 files['/credited.png'] = files['/mint.png'];
+files['/anim.gif'] = animatedGif(60, [[230, 40, 40], [40, 200, 70], [40, 80, 230]]);
 await maker.close();
 
 const page = `<!doctype html><html><head><title>Spring sketchbook</title></head>
@@ -74,6 +98,7 @@ const server = http.createServer((req, res) => {
   if (url === '/credited') return res.writeHead(200, { 'content-type': 'text/html' }).end(`<!doctype html><html><head><title>Mint study</title>
 <script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'ImageObject', contentUrl: `http://${req.headers.host}/credited.png`, name: 'Mint study', creator: { '@type': 'Person', name: 'Jane Doe', url: 'https://example.com/jane' }, license: 'https://creativecommons.org/licenses/by/4.0/' })}</script>
 </head><body style="margin:40px"><img id="credited" src="/credited.png" width="360" height="360"></body></html>`);
+  if (url === '/gif') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><head><title>Wiggles</title></head><body style="margin:40px"><img id="anim" src="/anim.gif" width="300" height="300"></body></html>');
   if (url === '/cover') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><head><title>Cover</title></head><body style="margin:40px 0"><img id="cover" src="/peach.png" style="display:block;margin:0 auto;width:400px;height:200px;object-fit:cover"></body></html>');
   if (url === '/noai') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><head><title>No AI</title><meta name="robots" content="noai, noimageai"></head><body style="margin:40px"><img src="/sun-noai.png" width="300" height="300"><img src="/heart2.png" width="300" height="300"></body></html>');
   if (url === '/sun-noai.png' || url === '/heart2.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(files['/peach.png']);
@@ -444,6 +469,54 @@ check('crop matches what is on screen with object-fit: cover, after the page res
   !!coverCrop && near(coverCrop.x, 0) && near(coverCrop.y, 0.25) && near(coverCrop.w, 0.5) && near(coverCrop.h, 0.5), JSON.stringify(coverCrop));
 await web.keyboard.press('Escape');
 await web.setViewportSize({ width: 1280, height: 860 });
+
+// Animated GIF: pick a frame in the panel, crop part of it, and keep that frame.
+await web.goto(`${base}/gif`);
+await web.waitForTimeout(500);
+const gbox = await web.locator('#anim').boundingBox();
+await web.mouse.move(gbox.x + gbox.width / 2, gbox.y + gbox.height / 2);
+await web.waitForTimeout(150);
+await web.mouse.click(gbox.x + gbox.width - 120, gbox.y + 32);
+await panel.reload();
+const frameCount = await panel.getByText('Frame 1 of 3').waitFor({ timeout: 15000 }).then(() => true, () => false);
+check('side panel offers a frame picker for an animated GIF', frameCount);
+await panel.getByRole('button', { name: 'Next frame' }).click();
+await panel.getByRole('button', { name: 'Next frame' }).click();
+await panel.waitForTimeout(800);
+await web.mouse.move(gbox.x + 30, gbox.y + 30);
+await web.mouse.down();
+await web.mouse.move(gbox.x + 180, gbox.y + 180, { steps: 5 });
+await web.mouse.up();
+await panel.waitForTimeout(1500);
+const centerColor = (sel) => panel.evaluate(async (sel) => {
+  const img = document.querySelector(sel);
+  if (!img) return null;
+  await img.decode();
+  const c = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  return Array.from(ctx.getImageData(c.width >> 1, c.height >> 1, 1, 1).data.slice(0, 3));
+}, sel);
+await panel.screenshot({ path: path.join(shots, '16-gif-frames.png') });
+await web.screenshot({ path: path.join(shots, '17-gif-still.png') });
+const pv = await centerColor('.preview img');
+check('preview shows the chosen frame (the blue one)', !!pv && pv[2] > 180 && pv[0] < 90, JSON.stringify(pv));
+await panel.getByRole('button', { name: /Keep crop/ }).click();
+await panel.waitForTimeout(1500);
+const gifRec = await sw.evaluate(async () => {
+  const db = await new Promise((res) => { const r = indexedDB.open('moodoodle'); r.onsuccess = () => res(r.result); });
+  const all = await new Promise((res) => { const r = db.transaction('images').objectStore('images').getAll(); r.onsuccess = () => res(r.result); });
+  const rec = all.find((i) => i.imageUrl.includes('anim.gif#moodoodle-crop='));
+  if (!rec) { db.close(); return null; }
+  const stored = await new Promise((res) => { const r = db.transaction('blobs').objectStore('blobs').get(rec.id); r.onsuccess = () => res(r.result); });
+  db.close();
+  const bmp = await createImageBitmap(new Blob([stored.bytes], { type: stored.type }));
+  const c = new OffscreenCanvas(bmp.width, bmp.height);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(bmp, 0, 0);
+  return { frame: rec.frame, type: stored.type, w: bmp.width, rgb: Array.from(ctx.getImageData(bmp.width >> 1, bmp.height >> 1, 1, 1).data.slice(0, 3)) };
+});
+check('keeps the chosen frame as a still crop', !!gifRec && gifRec.frame === 2 && gifRec.type === 'image/png' && gifRec.rgb[2] > 180 && gifRec.rgb[0] < 90, JSON.stringify(gifRec));
 
 // Fallback when Chrome won't open the side panel from a page click: the popup offers it.
 await popup.evaluate(async () => {
